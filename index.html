@@ -268,109 +268,204 @@
             // 軍服（オリーブドラブ）
             ctx.fillStyle = '#5a7a3a';
             ctx.fillRect(x+8, y+20, 48, 32);
+            // 軍服の濃いシェード
+            ctx.fillStyle = '#4a6a2a';
+            ctx.fillRect(x+8, y+35, 48, 5);
 
-            // 腕の振り
-            let armX1 = 12 + (frame === 0 ? -6 : frame === 2 ? 6 : 0);
-            let armX2 = 52 + (frame === 1 ? 6 : frame === 3 ? -6 : 0);
+            // 腕の振り（より大きく）
+            let armX1 = 12 + (frame === 0 ? -8 : frame === 2 ? 8 : 0);
+            let armX2 = 52 + (frame === 1 ? 8 : frame === 3 ? -8 : 0);
 
             ctx.fillStyle = '#d4a574';
-            ctx.fillRect(x+armX1, y+22, 6, 20);
-            ctx.fillRect(x+armX2, y+22, 6, 20);
+            ctx.fillRect(x+armX1, y+22, 7, 22);
+            ctx.fillRect(x+armX2, y+22, 7, 22);
+            // 手
+            ctx.fillStyle = '#e8b99a';
+            ctx.fillRect(x+armX1, y+43, 7, 4);
+            ctx.fillRect(x+armX2, y+43, 7, 4);
 
-            // 脚
+            // 脚（太い、動きを大きく）
             ctx.fillStyle = '#3a3a2a';
-            ctx.fillRect(x+16, y+50+legOffset[frame], 8, 16);
-            ctx.fillRect(x+40, y+50-legOffset[frame], 8, 16);
+            ctx.fillRect(x+16, y+50+legOffset[frame]*1.5, 10, 16);
+            ctx.fillRect(x+38, y+50-legOffset[frame]*1.5, 10, 16);
+            // ブーツ
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(x+16, y+66, 10, 4);
+            ctx.fillRect(x+38, y+66, 10, 4);
 
             // 首
             ctx.fillStyle = '#d4a574';
-            ctx.fillRect(x+28, y+14, 8, 6);
+            ctx.fillRect(x+28, y+14, 8, 8);
 
-            // 顔
-            ctx.fillStyle = '#d4a574';
-            ctx.fillRect(x+20, y, 24, 14);
+            // 顔（より詳細）
+            ctx.fillStyle = '#e8b99a';
+            ctx.fillRect(x+22, y+2, 20, 12);
+            // 目
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(x+26, y+6, 2, 2);
+            ctx.fillRect(x+36, y+6, 2, 2);
 
-            // 白ヘルメット
+            // 白ヘルメット（より大きく、目立たせる）
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
-            ctx.arc(x+32, y+4, 12, 0, Math.PI, true);
+            ctx.arc(x+32, y+2, 14, 0, Math.PI, true);
             ctx.fill();
-            ctx.fillRect(x+20, y+4, 24, 2);
+            ctx.fillRect(x+18, y+2, 28, 3);
+            // ヘルメット側面
+            ctx.fillStyle = '#e0e0e0';
+            ctx.fillRect(x+16, y+5, 3, 10);
+            ctx.fillRect(x+48, y+5, 3, 10);
 
-            // ヘルメット前面の赤十字
+            // ヘルメット前面の赤十字（大きく）
             ctx.fillStyle = '#ff0000';
-            ctx.fillRect(x+30, y+2, 2, 6);
-            ctx.fillRect(x+28, y+4, 6, 2);
+            ctx.fillRect(x+30, y+0, 3, 8);
+            ctx.fillRect(x+27, y+3, 8, 3);
+            // 十字の白枠
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x+28, y+1, 8, 6);
 
-            // 医療バッグ（大きめ）
-            ctx.fillStyle = '#8b6f47';
-            ctx.fillRect(x+42, y+20, 20, 28);
+            // 医療バッグ（より大きく、より目立たせる）
             ctx.fillStyle = '#a0826d';
-            ctx.fillRect(x+44, y+22, 16, 8);
-            ctx.fillRect(x+44, y+32, 16, 8);
+            ctx.fillRect(x+40, y+18, 24, 34);
+            // バッグの濃いシェード
+            ctx.fillStyle = '#8b6f47';
+            ctx.fillRect(x+40, y+18, 24, 3);
+            ctx.fillRect(x+62, y+18, 3, 34);
+            // ポケット
+            ctx.fillStyle = '#9a7657';
+            ctx.fillRect(x+44, y+24, 16, 10);
+            ctx.fillRect(x+44, y+38, 16, 10);
 
-            // バッグの赤十字
+            // バッグの赤十字（大きく、目立たせる）
             ctx.fillStyle = '#ff0000';
-            ctx.fillRect(x+52, y+24, 2, 4);
-            ctx.fillRect(x+50, y+25, 4, 2);
+            ctx.fillRect(x+51, y+26, 4, 10);
+            ctx.fillRect(x+48, y+29, 10, 4);
+            // 十字の白枠
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x+47, y+25, 12, 12);
 
-            // HP表示
+            // HP表示（より大きく）
+            ctx.fillStyle = '#ff0000';
             for (let i = 0; i < player.hp; i++) {
-                ctx.fillStyle = '#ff0000';
-                ctx.fillRect(x+i*8, y-12, 5, 5);
+                ctx.fillRect(x+i*10, y-16, 7, 7);
+                // HP枠
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(x+i*10, y-16, 7, 7);
             }
+
+            // キャラ周囲に光のエフェクト
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.arc(x+32, y+32, 45, 0, Math.PI*2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
         }
 
         function drawInjuredSoldier(x, y, index) {
-            // 倒れている兵士
+            // 倒れている兵士（より大きく、より詳細）
             ctx.fillStyle = '#5a7a3a';
-            ctx.fillRect(x, y+20, 40, 16);
+            ctx.fillRect(x, y+25, 50, 20);
+            // 軍服の濃いシェード
+            ctx.fillStyle = '#4a6a2a';
+            ctx.fillRect(x, y+40, 50, 4);
 
+            // 頭
             ctx.fillStyle = '#d4a574';
-            ctx.fillRect(x-8, y, 14, 12);
-            ctx.fillRect(x+10, y+18, 8, 6);
+            ctx.fillRect(x-10, y, 18, 15);
+            // 目
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(x-4, y+5, 2, 2);
+            ctx.fillRect(x+4, y+5, 2, 2);
 
+            // 脚
             ctx.fillStyle = '#3a3a2a';
-            ctx.fillRect(x+40, y+20, 6, 10);
+            ctx.fillRect(x+45, y+25, 8, 12);
+            // ブーツ
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(x+45, y+37, 8, 3);
 
-            // 赤十字マーク
+            // 赤十字マーク（大きく、目立たせる）
             ctx.fillStyle = '#ff0000';
-            ctx.fillRect(x+8, y+22, 2, 6);
-            ctx.fillRect(x+6, y+24, 6, 2);
+            ctx.fillRect(x+15, y+28, 3, 10);
+            ctx.fillRect(x+12, y+31, 10, 3);
+            // 十字の白枠
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x+11, y+27, 12, 12);
 
-            // 点滅するSOS
-            if (Math.floor(time / 15) % 2 === 0) {
+            // 点滅するSOS（より目立たせる）
+            if (Math.floor(time / 10) % 2 === 0) {
                 ctx.fillStyle = '#ff0000';
-                ctx.font = 'bold 10px monospace';
+                ctx.font = 'bold 16px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText('救助!', x+24, y-5);
+                ctx.fillText('救助!', x+24, y-15);
+                // テキストの背景
+                ctx.fillStyle = '#ffff00';
+                ctx.globalAlpha = 0.5;
+                ctx.fillRect(x+8, y-25, 32, 14);
+                ctx.globalAlpha = 1;
+            }
+
+            // 点滅：危機感表現
+            if (Math.floor(time / 20) % 2 === 0) {
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x-2, y-2, 54, 44);
             }
         }
 
         function drawBg() {
             // レイヤー3: 山/遠景
-            ctx.fillStyle = '#3a3a5a';
+            ctx.fillStyle = '#2a2a4a';
             let mountainOffset = (scroll * 0.3) % (W*2);
             ctx.beginPath();
-            ctx.moveTo(-100-mountainOffset, H*0.3);
-            ctx.lineTo(200-mountainOffset, 100);
-            ctx.lineTo(500-mountainOffset, H*0.3);
-            ctx.lineTo(800-mountainOffset, 150);
-            ctx.lineTo(W+100-mountainOffset, H*0.3);
-            ctx.lineTo(W+100, H*0.3);
-            ctx.lineTo(-100, H*0.3);
+            ctx.moveTo(-100-mountainOffset, H*0.25);
+            ctx.lineTo(150-mountainOffset, 80);
+            ctx.lineTo(400-mountainOffset, H*0.25);
+            ctx.lineTo(700-mountainOffset, 120);
+            ctx.lineTo(W+100-mountainOffset, H*0.25);
+            ctx.lineTo(W+100, H*0.25);
+            ctx.lineTo(-100, H*0.25);
             ctx.fill();
 
-            // レイヤー2: 破壊された建物
-            ctx.fillStyle = '#4a4a4a';
+            // レイヤー2: 破壊された建物（より大きく、目立たせる）
+            ctx.fillStyle = '#3a3a4a';
             let buildingOffset = (scroll * 0.6) % (W*2);
-            for (let i = 0; i < 3; i++) {
-                let bx = 300*i - buildingOffset;
-                ctx.fillRect(bx, H*0.2, 80, 120);
-                ctx.fillStyle = '#3a3a3a';
-                ctx.fillRect(bx+10, H*0.3, 20, 25);
-                ctx.fillRect(bx+40, H*0.3, 20, 25);
-                ctx.fillStyle = '#4a4a4a';
+            for (let i = 0; i < 5; i++) {
+                let bx = 250*i - buildingOffset;
+                // 壊れた建物
+                ctx.fillRect(bx, H*0.15, 120, 150);
+                // 窓
+                ctx.fillStyle = '#1a1a2a';
+                for (let wy = 0; wy < 4; wy++) {
+                    ctx.fillRect(bx+15, H*0.15+20+wy*30, 20, 18);
+                    ctx.fillRect(bx+50, H*0.15+20+wy*30, 20, 18);
+                    ctx.fillRect(bx+85, H*0.15+20+wy*30, 20, 18);
+                }
+                // 崩れた部分
+                ctx.fillStyle = '#2a2a3a';
+                ctx.fillRect(bx+40, H*0.15-20, 40, 20);
+                ctx.fillStyle = '#3a3a4a';
+            }
+
+            // 爆撃跡・砲撃跡（大きく、目立たせる）
+            ctx.fillStyle = '#1a1a2a';
+            let craterOffset = (scroll * 0.5) % (W*2);
+            for (let i = 0; i < 6; i++) {
+                let cx = (i*400 - craterOffset);
+                // 大きな爆撃跡
+                ctx.beginPath();
+                ctx.arc(cx, H*0.4, 80, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#0a0a1a';
+                ctx.beginPath();
+                ctx.arc(cx, H*0.4, 60, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#1a1a2a';
             }
 
             // ステージ別背景
@@ -460,31 +555,63 @@
             });
             ctx.globalAlpha = 1;
 
-            // ギミック描画
+            // ギミック描画（敵、より目立つ）
             obs.forEach(o => {
                 if (o.sx > scroll - 200 && o.sx < scroll + W + 200) {
                     let dx = o.sx - scroll;
                     if (o.t === 'exp') {
-                        ctx.fillStyle = '#ff6600';
+                        // 砲撃（爆弾）
+                        ctx.shadowColor = '#ff0000';
+                        ctx.shadowBlur = 10;
+                        ctx.fillStyle = '#ff2200';
                         ctx.fillRect(dx, o.sy, o.w, o.h);
                         ctx.fillStyle = '#ffaa00';
                         ctx.fillRect(dx+10, o.sy+10, o.w-20, o.h-20);
                         ctx.fillStyle = '#ffff00';
                         ctx.fillRect(dx+20, o.sy+20, o.w-40, o.h-40);
+                        // 危険の標識
+                        ctx.strokeStyle = '#ff0000';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(dx-5, o.sy-5, o.w+10, o.h+10);
+                        ctx.shadowColor = 'transparent';
                     } else if (o.t === 'mg') {
+                        // 機銃掃射（危険！）
+                        ctx.shadowColor = '#ff0000';
+                        ctx.shadowBlur = 15;
                         ctx.fillStyle = '#ffff00';
                         ctx.fillRect(dx, o.sy, o.w, o.h);
-                        for (let i = 0; i < 8; i++) {
+                        for (let i = 0; i < 10; i++) {
                             ctx.fillStyle = i%2 ? '#ff8800' : '#ffff00';
-                            ctx.fillRect(dx+i*25, o.sy+5, 20, o.h-10);
+                            ctx.fillRect(dx+i*20, o.sy+5, 18, o.h-10);
                         }
+                        // 警告ライン
+                        ctx.strokeStyle = '#ff0000';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(dx, o.sy-10);
+                        ctx.lineTo(dx+o.w, o.sy+o.h+10);
+                        ctx.stroke();
+                        ctx.shadowColor = 'transparent';
                     } else if (o.t === 'wire') {
-                        ctx.fillStyle = '#ff00ff';
+                        // 有刺鉄線
+                        ctx.shadowColor = '#8800ff';
+                        ctx.shadowBlur = 8;
+                        ctx.fillStyle = '#aa00ff';
                         ctx.fillRect(dx, o.sy, o.w, o.h);
                         ctx.fillStyle = '#ff0088';
-                        for (let i = 0; i < 4; i++) {
-                            ctx.fillRect(dx+i*12, o.sy+i*10, 3, o.h-i*10);
+                        for (let i = 0; i < 5; i++) {
+                            for (let j = 0; j < 4; j++) {
+                                ctx.fillRect(dx+i*12, o.sy+j*12, 3, 3);
+                            }
                         }
+                        // 危険の点々
+                        ctx.fillStyle = '#ff00ff';
+                        for (let i = 0; i < 6; i++) {
+                            ctx.beginPath();
+                            ctx.arc(dx+i*8, o.sy-3, 2, 0, Math.PI*2);
+                            ctx.fill();
+                        }
+                        ctx.shadowColor = 'transparent';
                     }
                 }
             });
@@ -559,63 +686,111 @@
                 ctx.globalAlpha = 1;
             }
 
-            // ヘリコプター（ゴール地点、128～192px大型）
+            // ヘリコプター（ゴール地点、明確で目立つ）
             let heliScreenX = heliPos - scroll;
-            if (heliScreenX > -300 && heliScreenX < W + 300) {
-                let heliSize = 150;
-                let heliY = H - 350;
+            if (heliScreenX > -400 && heliScreenX < W + 400) {
+                let heliSize = 180;
+                let heliY = H - 400;
 
-                // 本体（大型）
-                ctx.fillStyle = '#00aa00';
-                ctx.fillRect(heliScreenX-heliSize/2, heliY, heliSize, heliSize*0.6);
-
-                // キャビン
-                ctx.fillStyle = '#0088ff';
-                ctx.fillRect(heliScreenX-heliSize/3, heliY+20, heliSize*0.6, heliSize*0.3);
-
-                // ローター（回転アニメーション）
-                ctx.strokeStyle = '#888888';
-                ctx.lineWidth = 4;
-                let rotorAngle = (time / 5) * Math.PI / 180;
+                // ゴール地点の光
+                ctx.globalAlpha = 0.15;
+                ctx.fillStyle = '#ffff00';
                 ctx.beginPath();
-                ctx.moveTo(heliScreenX-heliSize*0.6, heliY-50);
-                ctx.lineTo(heliScreenX+heliSize*0.6, heliY-50);
+                ctx.arc(heliScreenX, heliY+heliSize*0.3, 250, 0, Math.PI*2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+
+                // 本体（大型、目立つ色）
+                ctx.fillStyle = '#00dd00';
+                ctx.fillRect(heliScreenX-heliSize/2, heliY, heliSize, heliSize*0.6);
+                // 本体のシェード
+                ctx.fillStyle = '#00aa00';
+                ctx.fillRect(heliScreenX-heliSize/2, heliY+heliSize*0.4, heliSize, heliSize*0.2);
+
+                // キャビン（より目立つ色）
+                ctx.fillStyle = '#0099ff';
+                ctx.fillRect(heliScreenX-heliSize/3, heliY+20, heliSize*0.6, heliSize*0.3);
+                // キャビンの窓
+                ctx.fillStyle = '#000044';
+                ctx.fillRect(heliScreenX-heliSize/3+10, heliY+28, 15, 12);
+                ctx.fillRect(heliScreenX-heliSize/3+35, heliY+28, 15, 12);
+
+                // ローター（回転アニメーション、より目立つ）
+                ctx.strokeStyle = '#444444';
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.moveTo(heliScreenX-heliSize*0.7, heliY-60);
+                ctx.lineTo(heliScreenX+heliSize*0.7, heliY-60);
                 ctx.stroke();
 
+                ctx.strokeStyle = '#444444';
+                ctx.lineWidth = 6;
                 ctx.beginPath();
-                ctx.moveTo(heliScreenX, heliY-120);
+                ctx.moveTo(heliScreenX, heliY-140);
                 ctx.lineTo(heliScreenX, heliY);
                 ctx.stroke();
 
-                // 着陸灯（点滅）
-                if (Math.floor(time/10) % 2 === 0) {
-                    ctx.fillStyle = '#ff0000';
+                // ローターの回転ブレード
+                ctx.strokeStyle = '#666666';
+                ctx.lineWidth = 3;
+                let bladeAngle = (time / 3) % Math.PI;
+                for (let i = 0; i < 2; i++) {
+                    let angle = bladeAngle + i * Math.PI;
                     ctx.beginPath();
-                    ctx.arc(heliScreenX-heliSize/3, heliY+heliSize*0.6-10, 8, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.fillStyle = '#00ff00';
-                    ctx.beginPath();
-                    ctx.arc(heliScreenX+heliSize/3, heliY+heliSize*0.6-10, 8, 0, Math.PI*2);
-                    ctx.fill();
+                    ctx.moveTo(heliScreenX + Math.cos(angle)*heliSize*0.7, heliY-60 + Math.sin(angle)*20);
+                    ctx.lineTo(heliScreenX - Math.cos(angle)*heliSize*0.7, heliY-60 - Math.sin(angle)*20);
+                    ctx.stroke();
                 }
 
-                // 着陸用ロープ
-                ctx.strokeStyle = '#999999';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(heliScreenX-heliSize/4, heliY+heliSize*0.6);
-                ctx.lineTo(heliScreenX-heliSize/4, H-80);
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.moveTo(heliScreenX+heliSize/4, heliY+heliSize*0.6);
-                ctx.lineTo(heliScreenX+heliSize/4, H-80);
-                ctx.stroke();
+                // 着陸灯（明るく点滅）
+                let lightOn = Math.floor(time/8) % 2 === 0;
+                if (lightOn) {
+                    ctx.fillStyle = '#ff3333';
+                    ctx.shadowColor = '#ff0000';
+                    ctx.shadowBlur = 15;
+                    ctx.beginPath();
+                    ctx.arc(heliScreenX-heliSize/3, heliY+heliSize*0.6-10, 10, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.shadowColor = 'transparent';
 
-                // ラベル
-                ctx.fillStyle = '#00ff00';
+                    ctx.fillStyle = '#33ff33';
+                    ctx.shadowColor = '#00ff00';
+                    ctx.shadowBlur = 15;
+                    ctx.beginPath();
+                    ctx.arc(heliScreenX+heliSize/3, heliY+heliSize*0.6-10, 10, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.shadowColor = 'transparent';
+                }
+
+                // 着陸用ロープ（複数、目立つ）
+                ctx.strokeStyle = '#cccccc';
+                ctx.lineWidth = 3;
+                for (let rope = -1; rope <= 1; rope++) {
+                    ctx.beginPath();
+                    ctx.moveTo(heliScreenX+rope*40, heliY+heliSize*0.6);
+                    ctx.lineTo(heliScreenX+rope*40, H-80);
+                    ctx.stroke();
+                }
+
+                // メインラベル（大きく、目立つ）
+                ctx.fillStyle = '#ffff00';
                 ctx.textAlign = 'center';
-                ctx.font = 'bold 20px monospace';
-                ctx.fillText('脱出ヘリ', heliScreenX, heliY-140);
+                ctx.font = 'bold 32px monospace';
+                ctx.fillText('脱出ヘリ', heliScreenX, heliY-160);
+                // ラベルの背景
+                ctx.fillStyle = '#000000';
+                ctx.globalAlpha = 0.7;
+                ctx.fillRect(heliScreenX-80, heliY-175, 160, 30);
+                ctx.globalAlpha = 1;
+
+                // 矢印：向かうべき場所
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(heliScreenX-60, heliY-190);
+                ctx.lineTo(heliScreenX, heliY-160);
+                ctx.lineTo(heliScreenX+60, heliY-190);
+                ctx.stroke();
             }
 
             // ゴール接近メッセージ表示
