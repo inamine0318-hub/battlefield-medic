@@ -5,22 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>戦場の衛生兵</title>
     <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            margin: 0;
-            padding: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background: #000;
+            background: #1a1a1a;
             font-family: Arial, sans-serif;
         }
         canvas {
-            border: 2px solid #fff;
-            background: #87ceeb;
+            border: 3px solid #333;
+            background: #2a3a4a;
             image-rendering: pixelated;
-            image-rendering: -moz-crisp-edges;
-            image-rendering: crisp-edges;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
         }
     </style>
 </head>
@@ -30,80 +28,150 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        const GAME_WIDTH = 360;
-        const GAME_HEIGHT = 640;
-        const GROUND_Y = 600;
+        const GAME_WIDTH = 360, GAME_HEIGHT = 640, GROUND_Y = 580;
+        const STAGE_TIMES = [300, 280, 260]; // 秒単位
+        const STAGE_NAMES = ['海岸戦線', '塹壕地帯', '廃墟の村'];
 
+        // 衛生兵プレイヤー
         const player = {
-            x: GAME_WIDTH / 2,
-            y: GROUND_Y,
+            x: GAME_WIDTH / 2 - 8,
+            y: GROUND_Y - 20,
             w: 16,
             h: 20,
             vy: 0,
-            speed: 2,
             jumpPower: 12,
             onGround: true,
+            canDoubleJump: false,
             hp: 5,
             maxHp: 5,
             hasBoots: false,
-            canDoubleJump: false
+            invincible: 0,
+            color: '#00ff00'
         };
 
-        let gameState = 'playing';
+        let gameState = 'start';
+        let stage = 1;
+        let gameTime = 0;
+        let stageTimer = STAGE_TIMES[0];
         let score = 0;
         let rescuedCount = 0;
-        let gameTime = 0;
-        let stage = 1;
-        let obstacles = [];
-        let items = [];
-        let injured = [];
-        let highScore = localStorage.getItem('battlefield_highScore') || 0;
-        let totalRescued = localStorage.getItem('battlefield_totalRescued') || 0;
-        let medals = {
-            rescued10: localStorage.getItem('medal_rescued10') === 'true',
-            rescued100: localStorage.getItem('medal_rescued100') === 'true',
-            noDamage: localStorage.getItem('medal_noDamage') === 'true'
-        };
+        let totalRescued = parseInt(localStorage.getItem('bf_totalRescued')) || 0;
+        let highScore = parseInt(localStorage.getItem('bf_highScore')) || 0;
 
+        let obstacles = [], injured = [], items = [], particles = [];
+
+        // 効果音シミュレーション（Web Audio API簡易版）
+        function playSound(type) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+
+                if (type === 'jump') {
+                    osc.frequency.value = 400;
+                    gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                    osc.start(audioContext.currentTime);
+                    osc.stop(audioContext.currentTime + 0.1);
+                } else if (type === 'rescue') {
+                    osc.frequency.value = 800;
+                    gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                    osc.start(audioContext.currentTime);
+                    osc.stop(audioContext.currentTime + 0.3);
+                } else if (type === 'explosion') {
+                    osc.frequency.value = 100;
+                    gain.gain.setValueAtTime(0.15, audioContext.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                    osc.start(audioContext.currentTime);
+                    osc.stop(audioContext.currentTime + 0.2);
+                }
+            } catch (e) {}
+        }
+
+        // パーティクル生成
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4 - 2,
+                    color,
+                    life: 30,
+                    maxLife: 30
+                });
+            }
+        }
+
+        // キャンバスクリックでゲーム開始・ジャンプ
         canvas.addEventListener('click', () => {
-            if (gameState === 'stageclear' && stage < 3) {
-                stage++;
+            if (gameState === 'start') {
                 gameState = 'playing';
                 gameTime = 0;
-                score = 0;
-                rescuedCount = 0;
-                obstacles = [];
-                items = [];
-                injured = [];
-                player.hp = 5;
-                player.hasBoots = false;
-                player.y = GROUND_Y;
-                player.vy = 0;
-                window.stageCleared = false;
+                stageTimer = STAGE_TIMES[stage - 1];
+                return;
+            }
+            if (gameState === 'stageclear' && stage < 3) {
+                stage++;
+                resetStage();
                 return;
             }
             if (gameState === 'stageclear' && stage === 3) {
-                location.reload();
+                saveAndReload();
                 return;
             }
             if (gameState === 'gameover') {
                 location.reload();
                 return;
             }
-            if (player.onGround) {
-                player.vy = -player.jumpPower;
-                player.onGround = false;
-                player.canDoubleJump = false;
-            } else if (player.hasBoots && !player.canDoubleJump) {
-                player.vy = -player.jumpPower;
-                player.canDoubleJump = true;
+            if (gameState === 'playing') {
+                if (player.onGround) {
+                    player.vy = -player.jumpPower;
+                    player.onGround = false;
+                    player.canDoubleJump = false;
+                    playSound('jump');
+                } else if (player.hasBoots && !player.canDoubleJump) {
+                    player.vy = -player.jumpPower;
+                    player.canDoubleJump = true;
+                    playSound('jump');
+                }
             }
         });
 
-        function update() {
-            gameTime++;
+        function resetStage() {
+            gameState = 'playing';
+            gameTime = 0;
+            stageTimer = STAGE_TIMES[stage - 1];
+            score = 0;
+            rescuedCount = 0;
+            obstacles = [];
+            injured = [];
+            items = [];
+            particles = [];
+            player.hp = 5;
+            player.hasBoots = false;
+            player.y = GROUND_Y - 20;
+            player.vy = 0;
+        }
 
-            player.vy += 0.5;
+        function saveAndReload() {
+            totalRescued += rescuedCount;
+            if (score > highScore) highScore = score;
+            localStorage.setItem('bf_totalRescued', totalRescued);
+            localStorage.setItem('bf_highScore', highScore);
+            location.reload();
+        }
+
+        function update() {
+            if (gameState !== 'playing') return;
+
+            gameTime++;
+            stageTimer = Math.max(0, STAGE_TIMES[stage - 1] - Math.floor(gameTime / 60));
+
+            // プレイヤー重力
+            player.vy += 0.6;
             player.y += player.vy;
 
             if (player.y + player.h >= GROUND_Y) {
@@ -115,54 +183,118 @@
                 player.onGround = false;
             }
 
-            // ステージ別ギミック生成
+            player.invincible = Math.max(0, player.invincible - 1);
+
+            // ギミック生成（ステージ別）
             if (stage === 1) {
-                if (gameTime % 120 === 0 && Math.random() < 0.6) {
-                    obstacles.push({x:Math.random()*(GAME_WIDTH-30),y:GROUND_Y-30,w:30,h:30,type:'explosion'});
+                if (gameTime % 90 === 0 && Math.random() < 0.7) {
+                    obstacles.push({
+                        x: Math.random() * (GAME_WIDTH - 40),
+                        y: GROUND_Y - 40,
+                        w: 40,
+                        h: 40,
+                        type: 'explosion',
+                        timer: 0
+                    });
                 }
             } else if (stage === 2) {
-                if (gameTime % 100 === 0 && Math.random() < 0.7) {
-                    obstacles.push({x:Math.random()*(GAME_WIDTH-30),y:GROUND_Y-30,w:30,h:30,type:'explosion'});
+                if (gameTime % 80 === 0 && Math.random() < 0.8) {
+                    obstacles.push({
+                        x: Math.random() * (GAME_WIDTH - 40),
+                        y: GROUND_Y - 40,
+                        w: 40,
+                        h: 40,
+                        type: 'explosion'
+                    });
                 }
-                if (gameTime % 150 === 0 && Math.random() < 0.5) {
-                    obstacles.push({x:0,y:Math.random()*(GROUND_Y-50),w:GAME_WIDTH,h:15,type:'machinegun'});
+                if (gameTime % 120 === 0 && Math.random() < 0.6) {
+                    obstacles.push({
+                        x: 0,
+                        y: Math.random() * (GROUND_Y - 100) + 50,
+                        w: GAME_WIDTH,
+                        h: 20,
+                        type: 'machinegun'
+                    });
                 }
             } else if (stage === 3) {
-                if (gameTime % 90 === 0 && Math.random() < 0.8) {
-                    obstacles.push({x:Math.random()*(GAME_WIDTH-30),y:GROUND_Y-30,w:30,h:30,type:'explosion'});
+                if (gameTime % 70 === 0 && Math.random() < 0.9) {
+                    obstacles.push({
+                        x: Math.random() * (GAME_WIDTH - 40),
+                        y: GROUND_Y - 40,
+                        w: 40,
+                        h: 40,
+                        type: 'explosion'
+                    });
                 }
-                if (gameTime % 130 === 0 && Math.random() < 0.6) {
-                    obstacles.push({x:0,y:Math.random()*(GROUND_Y-50),w:GAME_WIDTH,h:15,type:'machinegun'});
+                if (gameTime % 110 === 0 && Math.random() < 0.7) {
+                    obstacles.push({
+                        x: 0,
+                        y: Math.random() * (GROUND_Y - 100) + 50,
+                        w: GAME_WIDTH,
+                        h: 20,
+                        type: 'machinegun'
+                    });
                 }
-                if (gameTime % 160 === 0 && Math.random() < 0.4) {
-                    obstacles.push({x:Math.random()*(GAME_WIDTH-40),y:GROUND_Y-40,w:40,h:30,type:'barbedwire'});
+                if (gameTime % 150 === 0 && Math.random() < 0.5) {
+                    obstacles.push({
+                        x: Math.random() * (GAME_WIDTH - 50),
+                        y: GROUND_Y - 30,
+                        w: 50,
+                        h: 30,
+                        type: 'barbedwire'
+                    });
                 }
-                if (gameTime % 200 === 0 && Math.random() < 0.3) {
-                    obstacles.push({x:Math.random()*(GAME_WIDTH-50),y:0,w:50,h:30,type:'rockfall'});
+                if (gameTime % 180 === 0 && Math.random() < 0.4) {
+                    obstacles.push({
+                        x: Math.random() * (GAME_WIDTH - 60),
+                        y: 0,
+                        w: 60,
+                        h: 40,
+                        type: 'rockfall'
+                    });
                 }
             }
 
-            if (gameTime % (200 - stage * 20) === 0) {
-                injured.push({x:Math.random()*(GAME_WIDTH-16),y:GROUND_Y-20,w:16,h:16,rescued:false});
+            // 負傷兵生成
+            if (gameTime % (180 - stage * 20) === 0) {
+                injured.push({
+                    x: Math.random() * (GAME_WIDTH - 16),
+                    y: GROUND_Y - 25,
+                    w: 16,
+                    h: 16,
+                    rescued: false,
+                    color: '#ff4444'
+                });
             }
 
-            if (gameTime % 300 === 0 && Math.random() < 0.4) {
-                items.push({x:Math.random()*(GAME_WIDTH-12),y:GROUND_Y-20,w:12,h:12,type:'boots'});
+            // アイテム生成
+            if (gameTime % 300 === 0 && Math.random() < 0.5) {
+                items.push({
+                    x: Math.random() * (GAME_WIDTH - 12),
+                    y: GROUND_Y - 20,
+                    w: 12,
+                    h: 12,
+                    type: 'boots',
+                    color: '#ffff00'
+                });
             }
 
+            // 衝突判定
             obstacles.forEach((obs, i) => {
-                if (checkCollision(player, obs)) {
+                if (player.invincible <= 0 && checkCollision(player, obs)) {
                     player.hp--;
                     player.hasBoots = false;
+                    player.invincible = 30;
+                    createParticles(player.x + player.w / 2, player.y + player.h / 2, '#ff6666', 8);
+                    playSound('explosion');
                     obstacles.splice(i, 1);
                 }
             });
 
             items.forEach((item, i) => {
                 if (checkCollision(player, item)) {
-                    if (item.type === 'boots') {
-                        player.hasBoots = true;
-                    }
+                    player.hasBoots = true;
+                    createParticles(item.x, item.y, '#ffff00', 6);
                     items.splice(i, 1);
                 }
             });
@@ -172,62 +304,64 @@
                     inj.rescued = true;
                     rescuedCount++;
                     score += 100;
+                    createParticles(inj.x + inj.w / 2, inj.y + inj.h / 2, '#00ff00', 10);
+                    playSound('rescue');
                 }
             });
 
+            // パーティクル更新
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.3;
+                p.life--;
+                return p.life > 0;
+            });
+
+            // ゲームオーバー
             if (player.hp <= 0) {
                 gameState = 'gameover';
-                if (!window.scoreSubmitted) {
-                    window.scoreSubmitted = true;
-                    totalRescued = parseInt(totalRescued) + rescuedCount;
-                    if (score > parseInt(highScore)) {
-                        highScore = score;
-                        localStorage.setItem('battlefield_highScore', score);
-                    }
-                    localStorage.setItem('battlefield_totalRescued', totalRescued);
-
-                    if (rescuedCount >= 10) medals.rescued10 = true;
-                    if (totalRescued >= 100) medals.rescued100 = true;
-                    if (player.hp > 0) medals.noDamage = true;
-
-                    localStorage.setItem('medal_rescued10', medals.rescued10);
-                    localStorage.setItem('medal_rescued100', medals.rescued100);
-                    localStorage.setItem('medal_noDamage', medals.noDamage);
-                }
+                totalRescued += rescuedCount;
+                if (score > highScore) highScore = score;
+                localStorage.setItem('bf_totalRescued', totalRescued);
+                localStorage.setItem('bf_highScore', highScore);
             }
 
-            if (gameTime > (stage === 1 ? 18000 : stage === 2 ? 16000 : 14000)) {
+            // ステージクリア
+            if (stageTimer <= 0) {
                 gameState = 'stageclear';
-                if (!window.stageCleared) {
-                    window.stageCleared = true;
-                    totalRescued = parseInt(totalRescued) + rescuedCount;
-                    localStorage.setItem('battlefield_totalRescued', totalRescued);
-                }
             }
         }
 
         function draw() {
-            ctx.fillStyle = '#87ceeb';
+            // 背景
+            ctx.fillStyle = '#2a3a4a';
             ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-            ctx.fillStyle = '#8b7355';
-            ctx.fillRect(0, GROUND_Y, GAME_WIDTH, GAME_HEIGHT - GROUND_Y);
-
-            ctx.fillStyle = '#0066ff';
-            ctx.fillRect(player.x, player.y, player.w, player.h);
-
-            if (player.hasBoots) {
-                ctx.fillStyle = '#ffff00';
-                ctx.fillRect(player.x + 2, player.y + player.h - 4, player.w - 4, 4);
+            // 瓦礫背景
+            ctx.fillStyle = '#444444';
+            for (let i = 0; i < 5; i++) {
+                ctx.fillRect(Math.sin(gameTime * 0.01 + i) * 100 + 50, i * 120 + 100, 40, 30);
             }
 
+            // 地面
+            ctx.fillStyle = '#4a4a3a';
+            ctx.fillRect(0, GROUND_Y, GAME_WIDTH, GAME_HEIGHT - GROUND_Y);
+
+            // ギミック描画
             obstacles.forEach(obs => {
                 if (obs.type === 'explosion') {
                     ctx.fillStyle = '#ff6600';
                     ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    ctx.fillStyle = '#ffaa00';
+                    ctx.fillRect(obs.x + 4, obs.y + 4, obs.w - 8, obs.h - 8);
                 } else if (obs.type === 'machinegun') {
                     ctx.fillStyle = '#ffff00';
                     ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    ctx.fillStyle = '#ff8800';
+                    for (let i = 0; i < 5; i++) {
+                        ctx.fillRect(obs.x + i * 70, obs.y, 30, obs.h);
+                    }
                 } else if (obs.type === 'barbedwire') {
                     ctx.fillStyle = '#ff00ff';
                     ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
@@ -237,60 +371,107 @@
                 }
             });
 
+            // 負傷兵描画
+            injured.forEach(inj => {
+                if (!inj.rescued) {
+                    ctx.fillStyle = '#ff4444';
+                    ctx.fillRect(inj.x, inj.y, inj.w, inj.h);
+                    ctx.fillStyle = '#ff8888';
+                    ctx.fillRect(inj.x + 2, inj.y + 2, inj.w - 4, inj.h - 4);
+                }
+            });
+
+            // アイテム描画
             items.forEach(item => {
                 ctx.fillStyle = '#ffff00';
                 ctx.fillRect(item.x, item.y, item.w, item.h);
+                ctx.fillStyle = '#ffaa00';
+                ctx.fillRect(item.x + 1, item.y + 1, item.w - 2, item.h - 2);
             });
 
-            injured.forEach(inj => {
-                if (!inj.rescued) {
-                    ctx.fillStyle = '#ff0000';
-                    ctx.fillRect(inj.x, inj.y, inj.w, inj.h);
+            // プレイヤー描画（衛生兵）
+            if (player.invincible % 10 < 5) {
+                ctx.fillStyle = player.color;
+                ctx.fillRect(player.x, player.y, player.w, player.h);
+                ctx.fillStyle = '#00aa00';
+                ctx.fillRect(player.x + 3, player.y, 3, 4);
+                ctx.fillRect(player.x + 10, player.y, 3, 4);
+
+                if (player.hasBoots) {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.fillRect(player.x + 2, player.y + player.h - 3, player.w - 4, 3);
                 }
+            }
+
+            // パーティクル描画
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life / p.maxLife;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
+                ctx.globalAlpha = 1;
             });
 
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 16px Arial';
-            ctx.fillText(`ステージ ${stage}`, 10, 30);
-            ctx.fillText(`HP: ${player.hp}/${player.maxHp}`, 10, 50);
-            ctx.fillText(`救助: ${rescuedCount}`, 10, 70);
-            ctx.fillText(`スコア: ${score}`, 10, 90);
-            if (player.hasBoots) {
-                ctx.fillText('ブーツ: ON', 10, 110);
-            }
-            ctx.fillText(`最高: ${highScore}`, GAME_WIDTH - 120, 30);
+            // UI描画
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 14px Arial';
 
-            if (gameState === 'gameover') {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 32px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('ゲームオーバー', GAME_WIDTH / 2, GAME_HEIGHT / 2);
+            // ステージ情報
+            ctx.textAlign = 'left';
+            ctx.fillText(`ステージ ${stage}: ${STAGE_NAMES[stage - 1]}`, 10, 20);
+            ctx.fillText(`時間: ${Math.ceil(stageTimer)}秒`, 10, 40);
+
+            // HP（ハート）
+            ctx.fillStyle = '#ff0000';
+            for (let i = 0; i < player.hp; i++) {
+                ctx.fillText('❤', 10 + i * 15, 60);
             }
 
-            if (gameState === 'stageclear') {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 32px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('ステージクリア！', GAME_WIDTH / 2, GAME_HEIGHT / 2);
+            // 救助人数
+            ctx.fillStyle = '#00ff00';
+            ctx.fillText(`救助: ${rescuedCount}`, 10, 80);
+
+            // スコア
+            ctx.fillStyle = '#ffff00';
+            ctx.textAlign = 'right';
+            ctx.fillText(`スコア: ${score}`, GAME_WIDTH - 10, 20);
+            ctx.fillText(`最高: ${highScore}`, GAME_WIDTH - 10, 40);
+
+            // ゲーム状態表示
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.font = 'bold 24px Arial';
+
+            if (gameState === 'start') {
+                ctx.fillText('戦場の衛生兵', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40);
+                ctx.font = '14px Arial';
+                ctx.fillText('クリックでゲーム開始', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20);
+                ctx.fillText('武器を持たず、人を助ける', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40);
+            } else if (gameState === 'playing') {
+                ctx.globalAlpha = 0;
+            } else if (gameState === 'gameover') {
+                ctx.fillText('ゲームオーバー', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20);
                 ctx.font = '16px Arial';
-                ctx.fillText(`救助: ${rescuedCount} スコア: ${score}`, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60);
+                ctx.fillText(`救助: ${rescuedCount}人 スコア: ${score}`, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20);
+                ctx.fillText('クリックでリスタート', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60);
+            } else if (gameState === 'stageclear') {
+                ctx.fillText('ステージクリア！', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20);
+                ctx.font = '16px Arial';
+                ctx.fillText(`救助: ${rescuedCount}人 スコア: ${score}`, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20);
                 if (stage < 3) {
-                    ctx.fillText('クリックで次のステージ', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100);
+                    ctx.fillText('クリックで次のステージ', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60);
                 } else {
-                    ctx.fillText('ゲーム完了！', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100);
+                    ctx.fillText('すべてのステージを完了！', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60);
                 }
             }
+
+            ctx.globalAlpha = 1;
         }
 
         function checkCollision(a, b) {
-            return a.x < b.x + b.w &&
-                   a.x + a.w > b.x &&
-                   a.y < b.y + b.h &&
-                   a.y + a.h > b.y;
+            return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
         }
 
         function gameLoop() {
