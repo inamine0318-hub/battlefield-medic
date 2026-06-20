@@ -528,9 +528,9 @@
             ctx.font = 'bold 20px monospace';
             ctx.textAlign = 'left';
             ctx.fillText(`ステージ:${stage}`, 30, 50);
-            let timeLeft = Math.max(0, stageTimes[stage-1] - Math.floor(time/60));
-            ctx.fillText(`時間:${timeLeft}秒`, 30, 80);
-            ctx.fillText(`救助:${rescued}人`, 30, 110);
+            let distToHeli = Math.max(0, heliPos - scroll);
+            ctx.fillText(`距離:${Math.floor(distToHeli/100)}`, 30, 80);
+            ctx.fillText(`救助:${rescued}/${stageGoals[stage-1]}人`, 30, 110);
             ctx.textAlign = 'right';
             ctx.fillText(`スコア:${score}`, W-30, 50);
             ctx.fillText(`最高:${highScore}`, W-30, 80);
