@@ -61,6 +61,7 @@
         let highScore = parseInt(localStorage.getItem('bf_high')) || 0;
         let obs = [], inj = [], items = [], particles = [];
         let screenShake = 0, screenFlash = 0, rescueText = null;
+        let combo = 0, comboTimer = 0, comboText = null;
 
         function playSound(freq, dur) {
             try {
@@ -126,7 +127,15 @@
 
             // ギミック生成
             let genPos = scroll + H;
-            if (time % 70 === 0) {
+            let timeLeft = stageTimes[stage-1] - Math.floor(time/60);
+            let difficulty = 1.0;
+
+            // 時間経過で難易度上昇
+            if (timeLeft < 60) difficulty = 1.8;      // 最後の60秒：難易度最高
+            else if (timeLeft < 120) difficulty = 1.4; // 中盤：難易度中
+            else difficulty = 1.0;                      // 序盤：難易度低
+
+            if (time % Math.max(20, Math.floor(70 / difficulty)) === 0) {
                 let rnd = Math.random();
                 if (rnd < 0.6) {
                     obs.push({sx: Math.random()*(W-50), sy: genPos, w: 50, h: 50, t: 'exp'});
@@ -137,7 +146,7 @@
                 }
             }
 
-            if (time % (150-stage*15) === 0) {
+            if (time % Math.max(40, Math.floor((150-stage*15) / difficulty)) === 0) {
                 inj.push({sx: Math.random()*(W-20), sy: genPos, w: 20, h: 20, res: false});
             }
 
@@ -176,9 +185,14 @@
                 let iy = i.sy - scroll;
                 if (player.x < i.sx+i.w && player.x+player.w > i.sx &&
                     player.y < iy+i.h && player.y+player.h > iy && !i.res) {
-                    i.res = true; rescued++; score += 100;
+                    i.res = true; rescued++; combo++;
+                    let baseScore = 100;
+                    let comboMultiplier = Math.min(5, Math.floor(combo / 2) + 1);
+                    score += baseScore * comboMultiplier;
+                    comboTimer = 120;
                     screenShake = 5;
-                    rescueText = {x: i.sx+i.w/2, y: iy-10, t: 20, show: true};
+                    rescueText = {x: i.sx+i.w/2, y: iy-10, t: 20, show: true, multiplier: comboMultiplier};
+                    comboText = {x: W/2, y: 80, t: 30, show: true, combo: combo};
                     for (let j = 0; j < 25; j++) {
                         particles.push({x: i.sx+i.w/2, y: iy+i.h/2, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4-1, c: '#00ff00', l: 30, ml: 30});
                     }
@@ -188,6 +202,11 @@
 
             if (rescueText) rescueText.t--;
             if (rescueText && rescueText.t <= 0) rescueText = null;
+
+            comboTimer--;
+            if (comboTimer <= 0) combo = 0;
+            if (comboText) comboText.t--;
+            if (comboText && comboText.t <= 0) comboText = null;
 
             particles = particles.filter(p => {
                 p.x += p.vx; p.y += p.vy; p.vy += 0.3; p.l--;
@@ -362,16 +381,28 @@
             ctx.fillText(`SCORE:${score}`, W-8, 18);
             ctx.fillText(`HIGH:${highScore}`, W-8, 32);
 
-            // 救助テキスト表示（RESCUED! +100）
+            // 救助テキスト表示（RESCUED! +100 x倍率）
             if (rescueText && rescueText.show) {
                 let alpha = rescueText.t / 20;
                 ctx.globalAlpha = alpha;
-                ctx.fillStyle = '#00ff00';
+                ctx.fillStyle = rescueText.multiplier > 1 ? '#ffff00' : '#00ff00';
                 ctx.textAlign = 'center';
                 ctx.font = 'bold 14px monospace';
                 ctx.fillText('RESCUED!', rescueText.x, rescueText.y);
                 ctx.font = 'bold 12px monospace';
-                ctx.fillText('+100', rescueText.x, rescueText.y+15);
+                let scoreText = rescueText.multiplier > 1 ? `+${100 * rescueText.multiplier} x${rescueText.multiplier}` : '+100';
+                ctx.fillText(scoreText, rescueText.x, rescueText.y+15);
+                ctx.globalAlpha = 1;
+            }
+
+            // COMBO表示
+            if (comboText && comboText.show && comboText.combo > 1) {
+                let alpha = comboText.t / 30;
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#ffff00';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 16px monospace';
+                ctx.fillText(`COMBO x${comboText.combo}`, comboText.x, comboText.y);
                 ctx.globalAlpha = 1;
             }
 
