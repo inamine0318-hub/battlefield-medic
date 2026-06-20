@@ -6,8 +6,8 @@
     <title>戦場の衛生兵</title>
     <style>
         * { margin: 0; padding: 0; }
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #000; }
-        canvas { border: 3px solid #333; image-rendering: pixelated; }
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #000; font-family: monospace; }
+        canvas { border: 3px solid #444; background: #0a0a1a; image-rendering: pixelated; }
     </style>
 </head>
 <body>
@@ -17,12 +17,40 @@
         const ctx = canvas.getContext('2d');
         const W = 360, H = 640;
 
+        // 衛生兵プレイヤー（レトロドット風）
+        const MEDIC_IDLE = [
+            [0,1,1,0,0,1,1,0],
+            [0,1,1,0,0,1,1,0],
+            [1,1,1,1,1,1,1,1],
+            [0,1,1,0,0,1,1,0],
+            [0,0,1,0,0,1,0,0],
+            [0,1,0,1,1,0,1,0],
+        ];
+
+        const MEDIC_RUN1 = [
+            [0,1,1,0,0,1,1,0],
+            [0,1,1,0,0,1,1,0],
+            [1,1,1,1,1,1,1,1],
+            [0,1,1,0,0,1,1,0],
+            [0,0,1,1,1,0,0,0],
+            [0,1,0,0,0,1,1,0],
+        ];
+
+        const MEDIC_RUN2 = [
+            [0,1,1,0,0,1,1,0],
+            [0,1,1,0,0,1,1,0],
+            [1,1,1,1,1,1,1,1],
+            [0,1,1,0,0,1,1,0],
+            [1,0,0,0,0,0,0,1],
+            [1,0,1,0,0,1,0,1],
+        ];
+
         const player = {
-            x: W/2-8, y: H-80, w: 16, h: 20, vx: 0, vy: 0, jmpPower: 11,
+            x: W/2-16, y: H-100, w: 16, h: 24, vy: 0, jmpPower: 11,
             onGround: true, canDJ: false, hp: 5, maxHp: 5, boots: false, inv: 0, frame: 0
         };
 
-        let state = 'start', stage = 1, scroll = 0, scrollSpeed = 2.5, time = 0;
+        let state = 'start', stage = 1, scroll = 0, scrollSpeed = 2.2, time = 0;
         let stageTimes = [300, 280, 260], score = 0, rescued = 0;
         let totalRescued = parseInt(localStorage.getItem('bf_total')) || 0;
         let highScore = parseInt(localStorage.getItem('bf_high')) || 0;
@@ -64,17 +92,15 @@
         function reset() {
             state = 'playing'; scroll = 0; time = 0; score = 0; rescued = 0;
             obs = []; inj = []; items = []; particles = [];
-            player.hp = 5; player.boots = false; player.y = H-80; player.vy = 0;
+            player.hp = 5; player.boots = false; player.y = H-100; player.vy = 0;
         }
 
         function update() {
             if (state !== 'playing') return;
             time++; player.frame++;
 
-            // スクロール（前進）
             scroll += scrollSpeed;
 
-            // プレイヤー重力
             player.vy += 0.6;
             player.y += player.vy;
             if (player.y + player.h >= H-10) {
@@ -88,31 +114,25 @@
 
             player.inv = Math.max(0, player.inv - 1);
 
-            // ギミック生成（スクロール位置ベース）
+            // ギミック生成
             let genPos = scroll + H;
-            if (stage === 1) {
-                while (obs.length === 0 || obs[obs.length-1].sy < genPos + 100) {
-                    if (Math.random() < 0.6) {
-                        obs.push({
-                            sx: Math.random()*(W-40), sy: obs.length === 0 ? genPos : obs[obs.length-1].sy + Math.random()*80+40,
-                            w: 40, h: 40, t: 'exp'
-                        });
-                    } else {
-                        obs.push({
-                            sx: Math.random()*(W-40), sy: obs.length === 0 ? genPos : obs[obs.length-1].sy + Math.random()*80+40,
-                            w: 40, h: 40, t: 'exp'
-                        });
-                    }
+            if (time % 70 === 0) {
+                let rnd = Math.random();
+                if (rnd < 0.6) {
+                    obs.push({sx: Math.random()*(W-50), sy: genPos, w: 50, h: 50, t: 'exp'});
+                } else if (rnd < 0.8 && stage >= 2) {
+                    obs.push({sx: 0, sy: genPos+Math.random()*100, w: W, h: 20, t: 'mg'});
+                } else if (stage >= 3) {
+                    obs.push({sx: Math.random()*(W-40), sy: genPos, w: 40, h: 40, t: 'wire'});
                 }
             }
-            // ステージ2以降も同様
 
-            if (time % (180-stage*20) === 0) {
-                inj.push({sx: Math.random()*(W-16), sy: scroll+H, w: 16, h: 16, res: false});
+            if (time % (150-stage*15) === 0) {
+                inj.push({sx: Math.random()*(W-20), sy: genPos, w: 20, h: 20, res: false});
             }
 
-            if (time % 300 === 0 && Math.random() < 0.5) {
-                items.push({sx: Math.random()*(W-12), sy: scroll+H, w: 12, h: 12, t: 'boots'});
+            if (time % 280 === 0 && Math.random() < 0.5) {
+                items.push({sx: Math.random()*(W-16), sy: genPos, w: 16, h: 16, t: 'boots'});
             }
 
             // 衝突判定
@@ -121,7 +141,7 @@
                 if (player.inv <= 0 && player.x < o.sx+o.w && player.x+player.w > o.sx &&
                     player.y < oy+o.h && player.y+player.h > oy) {
                     player.hp--; player.boots = false; player.inv = 30;
-                    particle(player.x+player.w/2, player.y+player.h/2, '#ff4444', 10);
+                    particle(player.x+player.w/2, player.y+player.h/2, '#ff4444', 12);
                     playSound(100, 0.2);
                     obs.splice(i, 1);
                 }
@@ -132,7 +152,7 @@
                 if (player.x < it.sx+it.w && player.x+player.w > it.sx &&
                     player.y < ity+it.h && player.y+player.h > ity) {
                     player.boots = true;
-                    particle(it.sx, ity, '#ffff00', 8);
+                    particle(it.sx, ity, '#ffff00', 10);
                     items.splice(i, 1);
                 }
             });
@@ -142,7 +162,7 @@
                 if (player.x < i.sx+i.w && player.x+player.w > i.sx &&
                     player.y < iy+i.h && player.y+player.h > iy && !i.res) {
                     i.res = true; rescued++; score += 100;
-                    particle(i.sx+i.w/2, iy+i.h/2, '#00ff00', 12);
+                    particle(i.sx+i.w/2, iy+i.h/2, '#00ff00', 15);
                     playSound(800, 0.3);
                 }
             });
@@ -164,86 +184,127 @@
             if (timeLeft <= 0) state = 'stageclear';
         }
 
-        function drawChar(x, y) {
-            let frame = Math.floor(player.frame / 8) % 4;
-            // 衛生兵: 緑ユニフォーム
-            ctx.fillStyle = '#00cc00';
-            ctx.fillRect(x+4, y, 8, 12);
+        function drawPixelSprite(x, y, pattern, color) {
+            let pixelSize = 2;
+            pattern.forEach((row, i) => {
+                row.forEach((pixel, j) => {
+                    if (pixel) {
+                        ctx.fillStyle = color;
+                        ctx.fillRect(x + j*pixelSize, y + i*pixelSize, pixelSize, pixelSize);
+                    }
+                });
+            });
+        }
+
+        function drawMedic(x, y) {
+            let frame = Math.floor(player.frame / 6) % 3;
+            let pattern;
+            if (frame === 0) pattern = MEDIC_IDLE;
+            else if (frame === 1) pattern = MEDIC_RUN1;
+            else pattern = MEDIC_RUN2;
+
+            // 本体（ユニフォーム）
+            drawPixelSprite(x, y, pattern, '#00dd00');
+
             // 赤十字（胸部）
             ctx.fillStyle = '#ff0000';
-            ctx.fillRect(x+6, y+4, 2, 4);
-            ctx.fillRect(x+5, y+5, 4, 2);
-            // 頭
-            ctx.fillStyle = '#ffcc99';
-            ctx.fillRect(x+5, y-4, 6, 4);
-            // 脚（走行アニメ）
-            let legOff = Math.sin(frame * Math.PI / 2) * 2;
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(x+4, y+12+legOff, 2, 3);
-            ctx.fillRect(x+10, y+12-legOff, 2, 3);
+            ctx.fillRect(x+12, y+8, 2, 6);
+            ctx.fillRect(x+10, y+10, 6, 2);
+
             // ブーツ
             if (player.boots) {
                 ctx.fillStyle = '#ffff00';
-                ctx.fillRect(x+3, y+15, 10, 2);
+                ctx.fillRect(x+4, y+20, 4, 2);
+                ctx.fillRect(x+12, y+20, 4, 2);
+            }
+
+            // HP表示（キャラ上部）
+            for (let i = 0; i < player.hp; i++) {
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(x+i*3, y-6, 2, 2);
             }
         }
 
         function draw() {
-            // 背景: 戦場
+            // 背景
             ctx.fillStyle = '#0a0a1a';
             ctx.fillRect(0, 0, W, H);
 
-            // スクロール背景（瓦礫）
+            // スクロール背景
             ctx.fillStyle = '#1a1a2a';
-            let bgOffset = scroll % 60;
-            for (let i = -1; i < 15; i++) {
-                ctx.fillRect(50, i*60-bgOffset, 80, 30);
-                ctx.fillRect(200, i*60-bgOffset+30, 80, 30);
+            let bgOffset = scroll % 80;
+            for (let i = -1; i < 12; i++) {
+                ctx.fillRect(0, i*80-bgOffset, 80, 40);
+                ctx.fillRect(150, i*80-bgOffset+40, 100, 40);
+                ctx.fillRect(280, i*80-bgOffset, 80, 40);
             }
 
             // 砲撃跡
-            ctx.fillStyle = '#333333';
-            for (let i = 0; i < 8; i++) {
-                ctx.fillRect(Math.sin(scroll*0.02+i)*60+100, i*100-scroll%100, 50, 40);
-            }
-
-            // 血痕
-            ctx.fillStyle = 'rgba(255, 50, 50, 0.1)';
+            ctx.fillStyle = '#2a1a1a';
             for (let i = 0; i < 6; i++) {
-                ctx.fillRect(Math.cos(i)*100+150, i*120-scroll%120, 60, 40);
+                ctx.fillRect(Math.sin(scroll*0.03+i)*80+120, i*150-scroll%150, 60, 80);
             }
 
-            // ギミック描画
+            // 血痕表現
+            ctx.fillStyle = 'rgba(255, 50, 50, 0.05)';
+            for (let i = 0; i < 8; i++) {
+                ctx.fillRect(Math.cos(i)*120+150, i*140-scroll%140, 80, 60);
+            }
+
+            // ギミック
             obs.forEach(o => {
                 let oy = o.sy - scroll;
-                if (oy > -50 && oy < H) {
+                if (oy > -60 && oy < H) {
                     if (o.t === 'exp') {
                         ctx.fillStyle = '#ff6600';
                         ctx.fillRect(o.sx, oy, o.w, o.h);
                         ctx.fillStyle = '#ffaa00';
-                        ctx.fillRect(o.sx+4, oy+4, o.w-8, o.h-8);
+                        ctx.fillRect(o.sx+8, oy+8, o.w-16, o.h-16);
+                        ctx.fillStyle = '#ffff00';
+                        ctx.fillRect(o.sx+16, oy+16, o.w-32, o.h-32);
+                    } else if (o.t === 'mg') {
+                        ctx.fillStyle = '#ffff00';
+                        ctx.fillRect(o.sx, oy, o.w, o.h);
+                        ctx.fillStyle = '#ff8800';
+                        for (let i = 0; i < 8; i++) ctx.fillRect(o.sx+i*45, oy+5, 25, o.h-10);
+                    } else if (o.t === 'wire') {
+                        ctx.fillStyle = '#ff00ff';
+                        ctx.fillRect(o.sx, oy, o.w, o.h);
+                        ctx.fillStyle = '#ff0088';
+                        for (let i = 0; i < 4; i++) {
+                            ctx.fillRect(o.sx+i*10, oy+i*10, 3, o.h-i*10);
+                        }
                     }
                 }
             });
 
-            // 負傷兵描画
+            // 負傷兵（レトロドット風）
             inj.forEach(i => {
                 let iy = i.sy - scroll;
-                if (iy > -20 && iy < H && !i.res) {
+                if (iy > -30 && iy < H && !i.res) {
+                    // 頭
+                    ctx.fillStyle = '#ffcc99';
+                    ctx.fillRect(i.sx+4, iy, 8, 6);
+                    // 体
                     ctx.fillStyle = '#ff4444';
-                    ctx.fillRect(i.sx+2, iy, 4, 6);
-                    ctx.fillRect(i.sx, iy+6, 8, 4);
-                    ctx.fillRect(i.sx+1, iy+10, 3, 4);
-                    ctx.fillRect(i.sx+4, iy+10, 3, 4);
+                    ctx.fillRect(i.sx+2, iy+6, 12, 8);
+                    // 脚
+                    ctx.fillStyle = '#222222';
+                    ctx.fillRect(i.sx+4, iy+14, 3, 4);
+                    ctx.fillRect(i.sx+11, iy+14, 3, 4);
                 }
             });
 
-            // アイテム描画
+            // アイテム（ブーツ）
             items.forEach(it => {
                 let ity = it.sy - scroll;
-                if (ity > -15 && ity < H) {
+                if (ity > -20 && ity < H) {
                     ctx.fillStyle = '#ffff00';
-                    ctx.fillRect(it.sx, ity, it.w, it.h);
+                    ctx.fillRect(it.sx+2, ity+8, 6, 4);
+                    ctx.fillRect(it.sx+8, ity+8, 6, 4);
+                    ctx.fillStyle = '#ff8800';
+                    ctx.fillRect(it.sx+2, ity+12, 6, 2);
+                    ctx.fillRect(it.sx+8, ity+12, 6, 2);
                 }
             });
 
@@ -255,47 +316,53 @@
             });
             ctx.globalAlpha = 1;
 
-            // プレイヤー描画
-            if (player.inv % 10 < 5) drawChar(player.x, player.y);
+            // プレイヤー
+            if (player.inv % 10 < 5) {
+                drawMedic(player.x, player.y);
+            }
 
             // UI
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 12px monospace';
+            ctx.fillStyle = '#00ff00';
+            ctx.font = 'bold 11px monospace';
             ctx.textAlign = 'left';
-            ctx.fillText(`STAGE ${stage}`, 10, 20);
+            ctx.fillText(`STAGE:${stage}`, 8, 18);
             let timeLeft = Math.max(0, stageTimes[stage-1] - Math.floor(time/60));
-            ctx.fillText(`TIME ${timeLeft}s`, 10, 35);
-            ctx.fillText(`HP:${player.hp}/${player.maxHp}`, 10, 50);
-            ctx.fillText(`RESCUED:${rescued}`, 10, 65);
+            ctx.fillText(`TIME:${timeLeft}s`, 8, 32);
+            ctx.fillText(`RESCUED:${rescued}`, 8, 46);
             ctx.textAlign = 'right';
-            ctx.fillText(`SCORE:${score}`, W-10, 20);
-            ctx.fillText(`HIGH:${highScore}`, W-10, 35);
+            ctx.fillText(`SCORE:${score}`, W-8, 18);
+            ctx.fillText(`HIGH:${highScore}`, W-8, 32);
 
             // ゲーム状態
             if (state === 'start' || state === 'gameover' || state === 'stageclear') {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
                 ctx.fillRect(0, 0, W, H);
 
-                ctx.fillStyle = '#ffffff';
+                ctx.fillStyle = '#00ff00';
                 ctx.textAlign = 'center';
-                ctx.font = 'bold 18px monospace';
+                ctx.font = 'bold 16px monospace';
 
                 if (state === 'start') {
-                    ctx.fillText('戦場の衛生兵', W/2, H/2-30);
-                    ctx.font = '12px monospace';
-                    ctx.fillText('武器を持たず、人を助ける', W/2, H/2+5);
-                    ctx.fillText('CLICK TO START', W/2, H/2+35);
+                    ctx.fillText('BATTLEFIELD MEDIC', W/2, H/2-50);
+                    ctx.fillText('=========', W/2, H/2-32);
+                    ctx.font = '11px monospace';
+                    ctx.fillText('SAVE LIVES. NOT KILL ENEMIES.', W/2, H/2-10);
+                    ctx.fillText('[CLICK TO START]', W/2, H/2+40);
                 } else if (state === 'gameover') {
-                    ctx.fillText('GAME OVER', W/2, H/2-20);
-                    ctx.font = '14px monospace';
-                    ctx.fillText(`RESCUED:${rescued} SCORE:${score}`, W/2, H/2+15);
-                    ctx.fillText('CLICK TO RESTART', W/2, H/2+50);
+                    ctx.fillText('GAME OVER', W/2, H/2-40);
+                    ctx.fillText('=========', W/2, H/2-22);
+                    ctx.font = '12px monospace';
+                    ctx.fillText(`RESCUED: ${rescued}  SCORE: ${score}`, W/2, H/2);
+                    ctx.font = '10px monospace';
+                    ctx.fillText('[CLICK TO RESTART]', W/2, H/2+50);
                 } else if (state === 'stageclear') {
-                    ctx.fillText('STAGE CLEAR', W/2, H/2-20);
-                    ctx.font = '14px monospace';
-                    ctx.fillText(`RESCUED:${rescued} SCORE:${score}`, W/2, H/2+15);
-                    if (stage < 3) ctx.fillText('CLICK FOR NEXT', W/2, H/2+50);
-                    else ctx.fillText('MISSION COMPLETE', W/2, H/2+50);
+                    ctx.fillText('STAGE CLEAR', W/2, H/2-40);
+                    ctx.fillText('=========', W/2, H/2-22);
+                    ctx.font = '12px monospace';
+                    ctx.fillText(`RESCUED: ${rescued}  SCORE: ${score}`, W/2, H/2);
+                    ctx.font = '10px monospace';
+                    if (stage < 3) ctx.fillText('[CLICK FOR NEXT STAGE]', W/2, H/2+50);
+                    else ctx.fillText('[MISSION COMPLETE]', W/2, H/2+50);
                 }
             }
         }
