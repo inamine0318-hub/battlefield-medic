@@ -60,6 +60,7 @@
         let totalRescued = parseInt(localStorage.getItem('bf_total')) || 0;
         let highScore = parseInt(localStorage.getItem('bf_high')) || 0;
         let obs = [], inj = [], items = [], particles = [];
+        let screenShake = 0, screenFlash = 0, rescueText = null;
 
         function playSound(freq, dur) {
             try {
@@ -150,7 +151,12 @@
                 if (player.inv <= 0 && player.x < o.sx+o.w && player.x+player.w > o.sx &&
                     player.y < oy+o.h && player.y+player.h > oy) {
                     player.hp--; player.boots = false; player.inv = 30;
-                    particle(player.x+player.w/2, player.y+player.h/2, '#ff4444', 12);
+                    screenShake = 8; screenFlash = 15;
+                    for (let j = 0; j < 20; j++) {
+                        let angle = (Math.PI * 2 * j) / 20;
+                        let colors = ['#ffffff', '#ffff00', '#ff8800', '#ff4444'];
+                        particles.push({x: o.sx+o.w/2, y: oy+o.h/2, vx: Math.cos(angle)*3, vy: Math.sin(angle)*3, c: colors[Math.floor(Math.random()*colors.length)], l: 30, ml: 30});
+                    }
                     playSound(100, 0.2);
                     obs.splice(i, 1);
                 }
@@ -171,10 +177,17 @@
                 if (player.x < i.sx+i.w && player.x+player.w > i.sx &&
                     player.y < iy+i.h && player.y+player.h > iy && !i.res) {
                     i.res = true; rescued++; score += 100;
-                    particle(i.sx+i.w/2, iy+i.h/2, '#00ff00', 15);
+                    screenShake = 5;
+                    rescueText = {x: i.sx+i.w/2, y: iy-10, t: 20, show: true};
+                    for (let j = 0; j < 25; j++) {
+                        particles.push({x: i.sx+i.w/2, y: iy+i.h/2, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4-1, c: '#00ff00', l: 30, ml: 30});
+                    }
                     playSound(800, 0.3);
                 }
             });
+
+            if (rescueText) rescueText.t--;
+            if (rescueText && rescueText.t <= 0) rescueText = null;
 
             particles = particles.filter(p => {
                 p.x += p.vx; p.y += p.vy; p.vy += 0.3; p.l--;
@@ -235,6 +248,13 @@
         }
 
         function draw() {
+            // 画面揺れ適用
+            let shakeX = (Math.random() - 0.5) * screenShake;
+            let shakeY = (Math.random() - 0.5) * screenShake;
+            ctx.save();
+            ctx.translate(shakeX, shakeY);
+            screenShake *= 0.8;
+
             // 背景
             ctx.fillStyle = '#0a0a1a';
             ctx.fillRect(0, 0, W, H);
@@ -341,6 +361,30 @@
             ctx.textAlign = 'right';
             ctx.fillText(`SCORE:${score}`, W-8, 18);
             ctx.fillText(`HIGH:${highScore}`, W-8, 32);
+
+            // 救助テキスト表示（RESCUED! +100）
+            if (rescueText && rescueText.show) {
+                let alpha = rescueText.t / 20;
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#00ff00';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 14px monospace';
+                ctx.fillText('RESCUED!', rescueText.x, rescueText.y);
+                ctx.font = 'bold 12px monospace';
+                ctx.fillText('+100', rescueText.x, rescueText.y+15);
+                ctx.globalAlpha = 1;
+            }
+
+            ctx.restore();
+
+            // ダメージ赤フラッシュ
+            if (screenFlash > 0) {
+                ctx.globalAlpha = Math.min(1, screenFlash / 15) * 0.6;
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(0, 0, W, H);
+                ctx.globalAlpha = 1;
+                screenFlash -= 1;
+            }
 
             // ゲーム状態
             if (state === 'start' || state === 'gameover' || state === 'stageclear') {
