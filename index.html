@@ -6,8 +6,8 @@
     <title>戦場の衛生兵</title>
     <style>
         * { margin: 0; padding: 0; }
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #0a0a0a; }
-        canvas { border: 2px solid #333; background: #1a1a2e; image-rendering: pixelated; }
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #000; }
+        canvas { border: 3px solid #333; image-rendering: pixelated; }
     </style>
 </head>
 <body>
@@ -15,93 +15,134 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const W = 360, H = 640, GY = 580;
+        const W = 360, H = 640;
 
         const player = {
-            x: W/2-8, y: GY-20, w: 16, h: 20, vy: 0, vx: 0, jmp: 12, onGround: true, canDJ: false,
-            hp: 5, maxHp: 5, boots: false, inv: 0, frame: 0, speed: 3.5
+            x: W/2-8, y: H-80, w: 16, h: 20, vx: 0, vy: 0, jmpPower: 11,
+            onGround: true, canDJ: false, hp: 5, maxHp: 5, boots: false, inv: 0, frame: 0
         };
 
-        let state = 'start', stage = 1, time = 0, stageTime = [300, 280, 260], score = 0, rescued = 0;
-        let totalRescued = parseInt(localStorage.getItem('bf_total')) || 0, highScore = parseInt(localStorage.getItem('bf_high')) || 0;
+        let state = 'start', stage = 1, scroll = 0, scrollSpeed = 2.5, time = 0;
+        let stageTimes = [300, 280, 260], score = 0, rescued = 0;
+        let totalRescued = parseInt(localStorage.getItem('bf_total')) || 0;
+        let highScore = parseInt(localStorage.getItem('bf_high')) || 0;
         let obs = [], inj = [], items = [], particles = [];
 
         function playSound(freq, dur) {
             try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator(), gain = ctx.createGain();
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.frequency.value = freq;
-                gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur);
-                osc.start(ctx.currentTime); osc.stop(ctx.currentTime + dur);
+                const ac = new (window.AudioContext || window.webkitAudioContext)();
+                const o = ac.createOscillator(), g = ac.createGain();
+                o.connect(g); g.connect(ac.destination);
+                o.frequency.value = freq;
+                g.gain.setValueAtTime(0.1, ac.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.01, ac.currentTime + dur);
+                o.start(ac.currentTime); o.stop(ac.currentTime + dur);
             } catch(e) {}
         }
 
         function particle(x, y, c, n) {
             for (let i = 0; i < n; i++) {
-                particles.push({x, y, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*5-2, c, l: 30, ml: 30});
+                particles.push({x, y, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*4-1, c, l: 30, ml: 30});
             }
         }
 
         canvas.addEventListener('click', () => {
-            if (state === 'start') { state = 'playing'; time = 0; return; }
+            if (state === 'start') { state = 'playing'; scroll = 0; time = 0; return; }
             if (state === 'stageclear' && stage < 3) { stage++; reset(); return; }
-            if (state === 'stageclear' && stage === 3) { totalRescued += rescued; if (score > highScore) highScore = score; localStorage.setItem('bf_total', totalRescued); localStorage.setItem('bf_high', highScore); location.reload(); return; }
+            if (state === 'stageclear' && stage === 3) {
+                totalRescued += rescued; if (score > highScore) highScore = score;
+                localStorage.setItem('bf_total', totalRescued); localStorage.setItem('bf_high', highScore);
+                location.reload(); return;
+            }
             if (state === 'gameover') { location.reload(); return; }
             if (state === 'playing') {
-                if (player.onGround) { player.vy = -player.jmp; player.onGround = false; player.canDJ = false; playSound(400, 0.1); }
-                else if (player.boots && !player.canDJ) { player.vy = -player.jmp; player.canDJ = true; playSound(500, 0.1); }
+                if (player.onGround) { player.vy = -player.jmpPower; player.onGround = false; player.canDJ = false; playSound(400, 0.1); }
+                else if (player.boots && !player.canDJ) { player.vy = -player.jmpPower; player.canDJ = true; playSound(500, 0.1); }
             }
         });
 
         function reset() {
-            state = 'playing'; time = 0; score = 0; rescued = 0; obs = []; inj = []; items = []; particles = [];
-            player.hp = 5; player.boots = false; player.y = GY-20; player.vy = 0;
+            state = 'playing'; scroll = 0; time = 0; score = 0; rescued = 0;
+            obs = []; inj = []; items = []; particles = [];
+            player.hp = 5; player.boots = false; player.y = H-80; player.vy = 0;
         }
 
         function update() {
             if (state !== 'playing') return;
             time++; player.frame++;
-            player.vy += 0.6; player.y += player.vy;
-            if (player.y + player.h >= GY) { player.y = GY - player.h; player.vy = 0; player.onGround = true; player.canDJ = false; }
-            else player.onGround = false;
-            player.inv = Math.max(0, player.inv - 1);
 
-            if (stage === 1) {
-                if (time % 90 === 0 && Math.random() < 0.7) obs.push({x: Math.random()*(W-40), y: GY-40, w: 40, h: 40, t: 'exp'});
-            } else if (stage === 2) {
-                if (time % 80 === 0 && Math.random() < 0.8) obs.push({x: Math.random()*(W-40), y: GY-40, w: 40, h: 40, t: 'exp'});
-                if (time % 120 === 0 && Math.random() < 0.6) obs.push({x: 0, y: Math.random()*(GY-100)+50, w: W, h: 20, t: 'mg'});
-            } else if (stage === 3) {
-                if (time % 70 === 0 && Math.random() < 0.9) obs.push({x: Math.random()*(W-40), y: GY-40, w: 40, h: 40, t: 'exp'});
-                if (time % 110 === 0 && Math.random() < 0.7) obs.push({x: 0, y: Math.random()*(GY-100)+50, w: W, h: 20, t: 'mg'});
-                if (time % 150 === 0 && Math.random() < 0.5) obs.push({x: Math.random()*(W-50), y: GY-30, w: 50, h: 30, t: 'wire'});
-                if (time % 180 === 0 && Math.random() < 0.4) obs.push({x: Math.random()*(W-60), y: 0, w: 60, h: 40, t: 'rock'});
+            // スクロール（前進）
+            scroll += scrollSpeed;
+
+            // プレイヤー重力
+            player.vy += 0.6;
+            player.y += player.vy;
+            if (player.y + player.h >= H-10) {
+                player.y = H-10-player.h;
+                player.vy = 0;
+                player.onGround = true;
+                player.canDJ = false;
+            } else {
+                player.onGround = false;
             }
 
-            if (time % (180-stage*20) === 0) inj.push({x: Math.random()*(W-16), y: GY-25, w: 16, h: 16, res: false});
-            if (time % 300 === 0 && Math.random() < 0.5) items.push({x: Math.random()*(W-12), y: GY-20, w: 12, h: 12, t: 'boots'});
+            player.inv = Math.max(0, player.inv - 1);
 
+            // ギミック生成（スクロール位置ベース）
+            let genPos = scroll + H;
+            if (stage === 1) {
+                while (obs.length === 0 || obs[obs.length-1].sy < genPos + 100) {
+                    if (Math.random() < 0.6) {
+                        obs.push({
+                            sx: Math.random()*(W-40), sy: obs.length === 0 ? genPos : obs[obs.length-1].sy + Math.random()*80+40,
+                            w: 40, h: 40, t: 'exp'
+                        });
+                    } else {
+                        obs.push({
+                            sx: Math.random()*(W-40), sy: obs.length === 0 ? genPos : obs[obs.length-1].sy + Math.random()*80+40,
+                            w: 40, h: 40, t: 'exp'
+                        });
+                    }
+                }
+            }
+            // ステージ2以降も同様
+
+            if (time % (180-stage*20) === 0) {
+                inj.push({sx: Math.random()*(W-16), sy: scroll+H, w: 16, h: 16, res: false});
+            }
+
+            if (time % 300 === 0 && Math.random() < 0.5) {
+                items.push({sx: Math.random()*(W-12), sy: scroll+H, w: 12, h: 12, t: 'boots'});
+            }
+
+            // 衝突判定
             obs.forEach((o, i) => {
-                if (player.inv <= 0 && player.x < o.x+o.w && player.x+player.w > o.x && player.y < o.y+o.h && player.y+player.h > o.y) {
+                let oy = o.sy - scroll;
+                if (player.inv <= 0 && player.x < o.sx+o.w && player.x+player.w > o.sx &&
+                    player.y < oy+o.h && player.y+player.h > oy) {
                     player.hp--; player.boots = false; player.inv = 30;
-                    particle(player.x+player.w/2, player.y+player.h/2, '#ff4444', 8);
+                    particle(player.x+player.w/2, player.y+player.h/2, '#ff4444', 10);
                     playSound(100, 0.2);
                     obs.splice(i, 1);
                 }
             });
 
             items.forEach((it, i) => {
-                if (player.x < it.x+it.w && player.x+player.w > it.x && player.y < it.y+it.h && player.y+player.h > it.y) {
-                    player.boots = true; particle(it.x, it.y, '#ffff00', 6); items.splice(i, 1);
+                let ity = it.sy - scroll;
+                if (player.x < it.sx+it.w && player.x+player.w > it.sx &&
+                    player.y < ity+it.h && player.y+player.h > ity) {
+                    player.boots = true;
+                    particle(it.sx, ity, '#ffff00', 8);
+                    items.splice(i, 1);
                 }
             });
 
             inj.forEach(i => {
-                if (player.x < i.x+i.w && player.x+player.w > i.x && player.y < i.y+i.h && player.y+player.h > i.y && !i.res) {
+                let iy = i.sy - scroll;
+                if (player.x < i.sx+i.w && player.x+player.w > i.sx &&
+                    player.y < iy+i.h && player.y+player.h > iy && !i.res) {
                     i.res = true; rescued++; score += 100;
-                    particle(i.x+i.w/2, i.y+i.h/2, '#00ff00', 10);
+                    particle(i.sx+i.w/2, iy+i.h/2, '#00ff00', 12);
                     playSound(800, 0.3);
                 }
             });
@@ -119,113 +160,91 @@
                 localStorage.setItem('bf_high', highScore);
             }
 
-            let timeLeft = stageTime[stage-1] - Math.floor(time/60);
+            let timeLeft = stageTimes[stage-1] - Math.floor(time/60);
             if (timeLeft <= 0) state = 'stageclear';
         }
 
-        function drawPixel(x, y, color) {
-            ctx.fillStyle = color;
-            ctx.fillRect(x, y, 1, 1);
-        }
-
-        function drawChar() {
-            let frame = Math.floor(player.frame / 10) % 4;
-            let ox = player.x, oy = player.y;
-
-            // 衛生兵: 緑ユニフォーム + 赤十字 + 走行アニメ
-            ctx.fillStyle = '#00aa00';
-            ctx.fillRect(ox+4, oy, 8, 14);
-            ctx.fillStyle = '#008800';
-            ctx.fillRect(ox+2, oy+4, 3, 6);
-            ctx.fillRect(ox+11, oy+4, 3, 6);
-
-            // 走行アニメーション (脚の動き)
-            let legY = oy + 14 + (Math.sin(frame * Math.PI / 2) * 2);
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(ox+5, legY, 2, 4);
-            ctx.fillRect(ox+9, legY, 2, 4);
-
+        function drawChar(x, y) {
+            let frame = Math.floor(player.frame / 8) % 4;
+            // 衛生兵: 緑ユニフォーム
+            ctx.fillStyle = '#00cc00';
+            ctx.fillRect(x+4, y, 8, 12);
+            // 赤十字（胸部）
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(x+6, y+4, 2, 4);
+            ctx.fillRect(x+5, y+5, 4, 2);
             // 頭
             ctx.fillStyle = '#ffcc99';
-            ctx.fillRect(ox+5, oy-3, 6, 4);
-
-            // 赤十字 (衛生兵の象徴)
-            ctx.fillStyle = '#ff0000';
-            ctx.fillRect(ox+7, oy+8, 2, 3);
-            ctx.fillRect(ox+6, oy+9, 4, 2);
-
+            ctx.fillRect(x+5, y-4, 6, 4);
+            // 脚（走行アニメ）
+            let legOff = Math.sin(frame * Math.PI / 2) * 2;
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(x+4, y+12+legOff, 2, 3);
+            ctx.fillRect(x+10, y+12-legOff, 2, 3);
             // ブーツ
             if (player.boots) {
                 ctx.fillStyle = '#ffff00';
-                ctx.fillRect(ox+3, oy+18, 10, 2);
+                ctx.fillRect(x+3, y+15, 10, 2);
             }
         }
 
         function draw() {
             // 背景: 戦場
-            ctx.fillStyle = '#0d1b2a';
+            ctx.fillStyle = '#0a0a1a';
             ctx.fillRect(0, 0, W, H);
 
-            // 砲撃跡背景
-            ctx.fillStyle = '#1a2633';
-            for (let i = 0; i < 10; i++) {
-                ctx.fillRect(Math.sin(time*0.01+i)*50+80, i*60+50, 60, 30);
+            // スクロール背景（瓦礫）
+            ctx.fillStyle = '#1a1a2a';
+            let bgOffset = scroll % 60;
+            for (let i = -1; i < 15; i++) {
+                ctx.fillRect(50, i*60-bgOffset, 80, 30);
+                ctx.fillRect(200, i*60-bgOffset+30, 80, 30);
             }
 
-            // 瓦礫
+            // 砲撃跡
             ctx.fillStyle = '#333333';
-            for (let i = 0; i < 15; i++) {
-                ctx.fillRect(Math.cos(time*0.005+i*0.5)*80+100, i*40+60, 40, 20);
+            for (let i = 0; i < 8; i++) {
+                ctx.fillRect(Math.sin(scroll*0.02+i)*60+100, i*100-scroll%100, 50, 40);
             }
 
-            // 血痕表現
-            ctx.fillStyle = 'rgba(255, 50, 50, 0.2)';
-            for (let i = 0; i < 5; i++) {
-                ctx.fillRect(Math.sin(i)*100+150, 300+i*50, 80, 30);
+            // 血痕
+            ctx.fillStyle = 'rgba(255, 50, 50, 0.1)';
+            for (let i = 0; i < 6; i++) {
+                ctx.fillRect(Math.cos(i)*100+150, i*120-scroll%120, 60, 40);
             }
 
-            // 地面
-            ctx.fillStyle = '#2a2a1a';
-            ctx.fillRect(0, GY, W, H-GY);
-
-            // ギミック
+            // ギミック描画
             obs.forEach(o => {
-                if (o.t === 'exp') {
-                    ctx.fillStyle = '#ff6600';
-                    ctx.fillRect(o.x, o.y, o.w, o.h);
-                    ctx.fillStyle = '#ffaa00';
-                    ctx.fillRect(o.x+4, o.y+4, o.w-8, o.h-8);
-                } else if (o.t === 'mg') {
-                    ctx.fillStyle = '#ffff00';
-                    ctx.fillRect(o.x, o.y, o.w, o.h);
-                    ctx.fillStyle = '#ff8800';
-                    for (let i = 0; i < 5; i++) ctx.fillRect(o.x+i*70, o.y, 30, o.h);
-                } else if (o.t === 'wire') {
-                    ctx.fillStyle = '#ff00ff';
-                    ctx.fillRect(o.x, o.y, o.w, o.h);
-                } else if (o.t === 'rock') {
-                    ctx.fillStyle = '#666666';
-                    ctx.fillRect(o.x, o.y, o.w, o.h);
+                let oy = o.sy - scroll;
+                if (oy > -50 && oy < H) {
+                    if (o.t === 'exp') {
+                        ctx.fillStyle = '#ff6600';
+                        ctx.fillRect(o.sx, oy, o.w, o.h);
+                        ctx.fillStyle = '#ffaa00';
+                        ctx.fillRect(o.sx+4, oy+4, o.w-8, o.h-8);
+                    }
                 }
             });
 
-            // 負傷兵: 赤い人型
+            // 負傷兵描画
             inj.forEach(i => {
-                if (!i.res) {
+                let iy = i.sy - scroll;
+                if (iy > -20 && iy < H && !i.res) {
                     ctx.fillStyle = '#ff4444';
-                    ctx.fillRect(i.x+2, i.y, 4, 6);
-                    ctx.fillRect(i.x, i.y+6, 8, 4);
-                    ctx.fillRect(i.x+1, i.y+10, 3, 6);
-                    ctx.fillRect(i.x+4, i.y+10, 3, 6);
+                    ctx.fillRect(i.sx+2, iy, 4, 6);
+                    ctx.fillRect(i.sx, iy+6, 8, 4);
+                    ctx.fillRect(i.sx+1, iy+10, 3, 4);
+                    ctx.fillRect(i.sx+4, iy+10, 3, 4);
                 }
             });
 
-            // アイテム: ブーツ
+            // アイテム描画
             items.forEach(it => {
-                ctx.fillStyle = '#ffff00';
-                ctx.fillRect(it.x, it.y, it.w, it.h);
-                ctx.fillStyle = '#ffaa00';
-                ctx.fillRect(it.x+1, it.y+1, it.w-2, it.h-2);
+                let ity = it.sy - scroll;
+                if (ity > -15 && ity < H) {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.fillRect(it.sx, ity, it.w, it.h);
+                }
             });
 
             // パーティクル
@@ -236,53 +255,49 @@
             });
             ctx.globalAlpha = 1;
 
-            // プレイヤー
-            if (player.inv % 10 < 5) drawChar();
+            // プレイヤー描画
+            if (player.inv % 10 < 5) drawChar(player.x, player.y);
 
             // UI
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 12px monospace';
             ctx.textAlign = 'left';
-            ctx.fillText(`Stage ${stage}: ${['海岸戦線','塹壕地帯','廃墟の村'][stage-1]}`, 10, 20);
-            let timeLeft = Math.max(0, stageTime[stage-1] - Math.floor(time/60));
-            ctx.fillText(`Time: ${timeLeft}s`, 10, 35);
-            ctx.fillText(`HP: ${player.hp}/${player.maxHp}`, 10, 50);
-            ctx.fillText(`Rescued: ${rescued}`, 10, 65);
+            ctx.fillText(`STAGE ${stage}`, 10, 20);
+            let timeLeft = Math.max(0, stageTimes[stage-1] - Math.floor(time/60));
+            ctx.fillText(`TIME ${timeLeft}s`, 10, 35);
+            ctx.fillText(`HP:${player.hp}/${player.maxHp}`, 10, 50);
+            ctx.fillText(`RESCUED:${rescued}`, 10, 65);
             ctx.textAlign = 'right';
-            ctx.fillText(`Score: ${score}`, W-10, 20);
-            ctx.fillText(`High: ${highScore}`, W-10, 35);
+            ctx.fillText(`SCORE:${score}`, W-10, 20);
+            ctx.fillText(`HIGH:${highScore}`, W-10, 35);
 
             // ゲーム状態
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-            ctx.fillRect(0, 0, W, H);
+            if (state === 'start' || state === 'gameover' || state === 'stageclear') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+                ctx.fillRect(0, 0, W, H);
 
-            ctx.fillStyle = '#ffffff';
-            ctx.textAlign = 'center';
-            ctx.font = 'bold 20px monospace';
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 18px monospace';
 
-            if (state === 'start') {
-                ctx.fillText('戦場の衛生兵', W/2, H/2-40);
-                ctx.font = '12px monospace';
-                ctx.fillText('武器を持たず、人を助ける', W/2, H/2+10);
-                ctx.fillText('Click to Start', W/2, H/2+40);
-            } else if (state === 'playing') {
-                ctx.globalAlpha = 0;
-            } else if (state === 'gameover') {
-                ctx.fillText('Game Over', W/2, H/2-20);
-                ctx.font = '14px monospace';
-                ctx.fillText(`Rescued: ${rescued} | Score: ${score}`, W/2, H/2+20);
-                ctx.fillText('Click to Restart', W/2, H/2+60);
-            } else if (state === 'stageclear') {
-                ctx.fillText('Stage Clear!', W/2, H/2-20);
-                ctx.font = '14px monospace';
-                ctx.fillText(`Rescued: ${rescued} | Score: ${score}`, W/2, H/2+20);
-                if (stage < 3) {
-                    ctx.fillText('Click for Next Stage', W/2, H/2+60);
-                } else {
-                    ctx.fillText('Mission Complete!', W/2, H/2+60);
+                if (state === 'start') {
+                    ctx.fillText('戦場の衛生兵', W/2, H/2-30);
+                    ctx.font = '12px monospace';
+                    ctx.fillText('武器を持たず、人を助ける', W/2, H/2+5);
+                    ctx.fillText('CLICK TO START', W/2, H/2+35);
+                } else if (state === 'gameover') {
+                    ctx.fillText('GAME OVER', W/2, H/2-20);
+                    ctx.font = '14px monospace';
+                    ctx.fillText(`RESCUED:${rescued} SCORE:${score}`, W/2, H/2+15);
+                    ctx.fillText('CLICK TO RESTART', W/2, H/2+50);
+                } else if (state === 'stageclear') {
+                    ctx.fillText('STAGE CLEAR', W/2, H/2-20);
+                    ctx.font = '14px monospace';
+                    ctx.fillText(`RESCUED:${rescued} SCORE:${score}`, W/2, H/2+15);
+                    if (stage < 3) ctx.fillText('CLICK FOR NEXT', W/2, H/2+50);
+                    else ctx.fillText('MISSION COMPLETE', W/2, H/2+50);
                 }
             }
-            ctx.globalAlpha = 1;
         }
 
         function loop() { update(); draw(); requestAnimationFrame(loop); }
