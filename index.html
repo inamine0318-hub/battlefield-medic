@@ -25,14 +25,17 @@
         };
 
         let gameState = 'start', stage = 1, scroll = 0, scrollSpeed = 3.5, time = 0;
-        let stageTimes = [300, 280, 260], score = 0, rescued = 0;
+        let stageGoals = [2, 3, 5];
+        let score = 0, rescued = 0;
         let totalRescued = parseInt(localStorage.getItem('bf_total')) || 0;
         let highScore = parseInt(localStorage.getItem('bf_high')) || 0;
         let obs = [], inj = [], items = [], particles = [], bgEffects = [];
         let screenShake = 0, screenFlash = 0, rescueText = null;
         let combo = 0, comboTimer = 0, comboText = null;
-        let heliX = W+200, heliAppear = false;
+        let heliPos = 0, heliReached = false;
         let damageCount = 0;
+        let goalMessage = '';
+        let safeZoneStart = 0;
 
         function playSound(freq, dur) {
             try {
@@ -92,8 +95,10 @@
             obs = []; inj = []; items = []; particles = []; bgEffects = [];
             player.hp = 5; player.boots = false; player.y = H-200; player.vy = 0;
             player.state = 'run'; player.rescued = 0;
-            combo = 0; comboTimer = 0; heliX = W+200; heliAppear = false;
+            combo = 0; comboTimer = 0; heliPos = 30000; heliReached = false;
             screenShake = 0; screenFlash = 0; damageCount = 0;
+            goalMessage = '';
+            safeZoneStart = heliPos - 3000;
         }
 
         function update() {
@@ -117,26 +122,38 @@
             player.inv = Math.max(0, player.inv - 1);
 
             let genX = scroll + W;
-            let timeLeft = stageTimes[stage-1] - Math.floor(time/60);
-            let difficulty = timeLeft < 60 ? 1.8 : (timeLeft < 120 ? 1.4 : 1.0);
+            let distToHeli = heliPos - scroll;
 
-            if (time % Math.max(20, Math.floor(70 / difficulty)) === 0) {
-                let rnd = Math.random();
-                if (rnd < 0.6) {
-                    obs.push({sx: genX, sy: H-140, w: 60, h: 60, t: 'exp'});
-                } else if (rnd < 0.8 && stage >= 2) {
-                    obs.push({sx: genX, sy: H-180, w: 200, h: 30, t: 'mg'});
-                } else if (stage >= 3) {
-                    obs.push({sx: genX, sy: H-80, w: 50, h: 50, t: 'wire'});
+            // ゴール接近演出
+            if (distToHeli < 4000 && distToHeli > 3000) goalMessage = '避難ポイント接近中';
+            else if (distToHeli < 3000 && distToHeli > 2000) goalMessage = 'ヘリコプター視認';
+            else if (distToHeli < 2000 && distToHeli > 0) goalMessage = 'ゴール間近';
+            else if (distToHeli <= 0) goalMessage = '';
+
+            // 安全地帯：敵出現停止
+            let inSafeZone = scroll >= safeZoneStart;
+
+            if (!inSafeZone) {
+                let difficulty = 1.0 + (scroll / heliPos) * 0.8;
+
+                if (time % Math.max(20, Math.floor(70 / difficulty)) === 0) {
+                    let rnd = Math.random();
+                    if (rnd < 0.6) {
+                        obs.push({sx: genX, sy: H-140, w: 60, h: 60, t: 'exp'});
+                    } else if (rnd < 0.8 && stage >= 2) {
+                        obs.push({sx: genX, sy: H-180, w: 200, h: 30, t: 'mg'});
+                    } else if (stage >= 3) {
+                        obs.push({sx: genX, sy: H-80, w: 50, h: 50, t: 'wire'});
+                    }
                 }
-            }
 
-            if (time % Math.max(40, Math.floor((150-stage*15) / difficulty)) === 0) {
-                inj.push({sx: genX, sy: H-140, w: 48, h: 48, res: false, carried: false});
-            }
+                if (time % Math.max(40, Math.floor((150-stage*15) / difficulty)) === 0) {
+                    inj.push({sx: genX, sy: H-140, w: 48, h: 48, res: false, carried: false});
+                }
 
-            if (time % 280 === 0 && Math.random() < 0.5) {
-                items.push({sx: genX, sy: H-160, w: 30, h: 30, t: 'boots'});
+                if (time % 280 === 0 && Math.random() < 0.5) {
+                    items.push({sx: genX, sy: H-160, w: 30, h: 30, t: 'boots'});
+                }
             }
 
             obs.forEach((o, i) => {
@@ -211,21 +228,28 @@
                 localStorage.setItem('bf_high', highScore);
             }
 
-            if (timeLeft <= 0 && !heliAppear) {
-                heliAppear = true;
-                playSound(200, 0.6);
-            }
-
-            if (heliAppear) {
-                heliX -= 2;
-                if (heliX < 0) heliX = 0;
-                if (player.x < heliX+150 && player.x+player.w > heliX && player.y < H-150) {
+            // ヘリコプターゴール到達判定
+            if (player.x > heliPos - scroll - 100 && player.x < heliPos - scroll + 100) {
+                if (rescued >= stageGoals[stage-1]) {
                     gameState = 'stageclear';
+                    screenFlash = 30;
+                    playSound(800, 0.5);
+                    for (let j = 0; j < 50; j++) {
+                        particles.push({
+                            x: heliPos - scroll + 100,
+                            y: H-300,
+                            vx: (Math.random()-0.5)*8,
+                            vy: (Math.random()-0.5)*8-2,
+                            c: '#00ff00',
+                            l: 40,
+                            ml: 40
+                        });
+                    }
+                } else {
+                    gameState = 'gameover';
+                    totalRescued += rescued;
+                    localStorage.setItem('bf_total', totalRescued);
                 }
-            }
-
-            if (timeLeft <= 0 && heliAppear && Math.floor(time/60) - stageTimes[stage-1] > 40) {
-                gameState = 'stageclear';
             }
 
             obs = obs.filter(o => o.sx > scroll - 200);
@@ -535,31 +559,71 @@
                 ctx.globalAlpha = 1;
             }
 
-            // ヘリコプター
-            if (heliAppear) {
-                let hx = heliX - scroll;
-                if (hx > -300 && hx < W + 300) {
-                    ctx.fillStyle = '#00aa00';
-                    ctx.fillRect(hx-50, H-200, 200, 80);
-                    ctx.fillStyle = '#0088ff';
-                    ctx.fillRect(hx-20, H-190, 140, 40);
+            // ヘリコプター（ゴール地点、128～192px大型）
+            let heliScreenX = heliPos - scroll;
+            if (heliScreenX > -300 && heliScreenX < W + 300) {
+                let heliSize = 150;
+                let heliY = H - 350;
 
-                    ctx.strokeStyle = '#888888';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.moveTo(hx-80, H-300);
-                    ctx.lineTo(hx+130, H-300);
-                    ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(hx+25, H-380);
-                    ctx.lineTo(hx+25, H-180);
-                    ctx.stroke();
+                // 本体（大型）
+                ctx.fillStyle = '#00aa00';
+                ctx.fillRect(heliScreenX-heliSize/2, heliY, heliSize, heliSize*0.6);
 
+                // キャビン
+                ctx.fillStyle = '#0088ff';
+                ctx.fillRect(heliScreenX-heliSize/3, heliY+20, heliSize*0.6, heliSize*0.3);
+
+                // ローター（回転アニメーション）
+                ctx.strokeStyle = '#888888';
+                ctx.lineWidth = 4;
+                let rotorAngle = (time / 5) * Math.PI / 180;
+                ctx.beginPath();
+                ctx.moveTo(heliScreenX-heliSize*0.6, heliY-50);
+                ctx.lineTo(heliScreenX+heliSize*0.6, heliY-50);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(heliScreenX, heliY-120);
+                ctx.lineTo(heliScreenX, heliY);
+                ctx.stroke();
+
+                // 着陸灯（点滅）
+                if (Math.floor(time/10) % 2 === 0) {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.beginPath();
+                    ctx.arc(heliScreenX-heliSize/3, heliY+heliSize*0.6-10, 8, 0, Math.PI*2);
+                    ctx.fill();
                     ctx.fillStyle = '#00ff00';
-                    ctx.textAlign = 'center';
-                    ctx.font = 'bold 18px monospace';
-                    ctx.fillText('脱出', hx+25, H-320);
+                    ctx.beginPath();
+                    ctx.arc(heliScreenX+heliSize/3, heliY+heliSize*0.6-10, 8, 0, Math.PI*2);
+                    ctx.fill();
                 }
+
+                // 着陸用ロープ
+                ctx.strokeStyle = '#999999';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(heliScreenX-heliSize/4, heliY+heliSize*0.6);
+                ctx.lineTo(heliScreenX-heliSize/4, H-80);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(heliScreenX+heliSize/4, heliY+heliSize*0.6);
+                ctx.lineTo(heliScreenX+heliSize/4, H-80);
+                ctx.stroke();
+
+                // ラベル
+                ctx.fillStyle = '#00ff00';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 20px monospace';
+                ctx.fillText('脱出ヘリ', heliScreenX, heliY-140);
+            }
+
+            // ゴール接近メッセージ表示
+            if (goalMessage) {
+                ctx.fillStyle = '#ffff00';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 36px monospace';
+                ctx.fillText(goalMessage, W/2, 150);
             }
 
             ctx.restore();
@@ -591,13 +655,22 @@
                     ctx.font = '24px monospace';
                     ctx.fillText('[スタートをタップ]', W/2, H/2+200);
                 } else if (gameState === 'gameover') {
-                    ctx.fillText('ゲームオーバー', W/2, H/2-150);
-                    ctx.font = '20px monospace';
-                    ctx.textAlign = 'left';
-                    ctx.fillText(`救助: ${rescued} 人`, 100, H/2-20);
-                    ctx.fillText(`被弾: ${damageCount} 回`, 100, H/2+30);
-                    ctx.fillText(`スコア: ${score} ポイント`, 100, H/2+80);
-                    ctx.fillText(`最高記録: ${highScore} ポイント`, 100, H/2+130);
+                    if (rescued < stageGoals[stage-1]) {
+                        ctx.fillText('脱出失敗', W/2, H/2-150);
+                        ctx.font = '20px monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(`必要な救助人数: ${stageGoals[stage-1]} 人`, W/2, H/2-50);
+                        ctx.fillText(`救助した人数: ${rescued} 人`, W/2, H/2);
+                        ctx.fillText(`あと ${stageGoals[stage-1] - rescued} 人足りません`, W/2, H/2+50);
+                    } else {
+                        ctx.fillText('ゲームオーバー', W/2, H/2-150);
+                        ctx.font = '20px monospace';
+                        ctx.textAlign = 'left';
+                        ctx.fillText(`救助: ${rescued} 人`, 100, H/2-20);
+                        ctx.fillText(`被弾: ${damageCount} 回`, 100, H/2+30);
+                        ctx.fillText(`スコア: ${score} ポイント`, 100, H/2+80);
+                        ctx.fillText(`最高記録: ${highScore} ポイント`, 100, H/2+130);
+                    }
                     ctx.textAlign = 'center';
                     ctx.font = '24px monospace';
                     ctx.fillText('[リスタートをタップ]', W/2, H/2+250);
