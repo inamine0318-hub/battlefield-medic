@@ -63,6 +63,7 @@
         let screenShake = 0, screenFlash = 0, rescueText = null;
         let combo = 0, comboTimer = 0, comboText = null;
         let heliY = -100, heliAppear = false;
+        let damageCount = 0;
 
         function playSound(freq, dur) {
             try {
@@ -106,7 +107,7 @@
             obs = []; inj = []; items = []; particles = [];
             player.hp = 5; player.boots = false; player.y = H-100; player.vy = 0;
             combo = 0; comboTimer = 0; heliY = -100; heliAppear = false;
-            screenShake = 0; screenFlash = 0;
+            screenShake = 0; screenFlash = 0; damageCount = 0;
         }
 
         function update() {
@@ -163,6 +164,7 @@
                 if (player.inv <= 0 && player.x < o.sx+o.w && player.x+player.w > o.sx &&
                     player.y < oy+o.h && player.y+player.h > oy) {
                     player.hp--; player.boots = false; player.inv = 30;
+                    damageCount++;
                     screenShake = 8; screenFlash = 15;
                     for (let j = 0; j < 20; j++) {
                         let angle = (Math.PI * 2 * j) / 20;
@@ -495,20 +497,34 @@
                     ctx.fillText('SAVE LIVES. NOT KILL ENEMIES.', W/2, H/2-10);
                     ctx.fillText('[CLICK TO START]', W/2, H/2+40);
                 } else if (state === 'gameover') {
-                    ctx.fillText('GAME OVER', W/2, H/2-40);
-                    ctx.fillText('=========', W/2, H/2-22);
-                    ctx.font = '12px monospace';
-                    ctx.fillText(`RESCUED: ${rescued}  SCORE: ${score}`, W/2, H/2);
+                    ctx.fillText('GAME OVER', W/2, H/2-60);
+                    ctx.fillText('=========', W/2, H/2-42);
                     ctx.font = '10px monospace';
-                    ctx.fillText('[CLICK TO RESTART]', W/2, H/2+50);
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`RESCUED:     ${rescued} soldiers`, 50, H/2-15);
+                    ctx.fillText(`DAMAGE:      ${damageCount} hits`, 50, H/2+0);
+                    ctx.fillText(`DURATION:    ${Math.floor(time/60)} seconds`, 50, H/2+15);
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`SCORE: ${score} pts`, W-50, H/2+15);
+                    ctx.fillText(`HIGH:  ${highScore} pts`, W-50, H/2+30);
+                    ctx.textAlign = 'center';
+                    ctx.font = '11px monospace';
+                    ctx.fillText('[CLICK TO RESTART]', W/2, H/2+60);
                 } else if (state === 'stageclear') {
-                    ctx.fillText('STAGE CLEAR', W/2, H/2-40);
-                    ctx.fillText('=========', W/2, H/2-22);
-                    ctx.font = '12px monospace';
-                    ctx.fillText(`RESCUED: ${rescued}  SCORE: ${score}`, W/2, H/2);
+                    ctx.fillText('STAGE CLEAR', W/2, H/2-60);
+                    ctx.fillText('=========', W/2, H/2-42);
                     ctx.font = '10px monospace';
-                    if (stage < 3) ctx.fillText('[CLICK FOR NEXT STAGE]', W/2, H/2+50);
-                    else ctx.fillText('[MISSION COMPLETE]', W/2, H/2+50);
+                    ctx.textAlign = 'left';
+                    ctx.fillText(`RESCUED:     ${rescued} soldiers`, 50, H/2-15);
+                    ctx.fillText(`DAMAGE:      ${damageCount} hits`, 50, H/2+0);
+                    ctx.fillText(`DURATION:    ${Math.floor(time/60)} seconds`, 50, H/2+15);
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`SCORE: ${score} pts`, W-50, H/2+15);
+                    ctx.fillText(`HIGH:  ${highScore} pts`, W-50, H/2+30);
+                    ctx.textAlign = 'center';
+                    ctx.font = '11px monospace';
+                    if (stage < 3) ctx.fillText('[CLICK FOR NEXT STAGE]', W/2, H/2+60);
+                    else ctx.fillText('[MISSION COMPLETE - CLICK TO CONTINUE]', W/2, H/2+60);
                 }
             }
         }
