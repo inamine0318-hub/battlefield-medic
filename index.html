@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>戦場の衛生兵</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 2px solid #fff;
+            background: #87ceeb;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="360" height="640"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const GAME_WIDTH = 360;
+        const GAME_HEIGHT = 640;
+        const GROUND_Y = 600;
+
+        const player = {
+            x: GAME_WIDTH / 2,
+            y: GROUND_Y,
+            w: 16,
+            h: 20,
+            vy: 0,
+            speed: 2,
+            jumpPower: 12,
+            onGround: true,
+            hp: 5,
+            maxHp: 5,
+            hasBoots: false,
+            canDoubleJump: false
+        };
+
+        let gameState = 'playing';
+        let score = 0;
+        let rescuedCount = 0;
+        let gameTime = 0;
+        let obstacles = [];
+        let items = [];
+        let injured = [];
+
+        canvas.addEventListener('click', () => {
+            if (player.onGround) {
+                player.vy = -player.jumpPower;
+                player.onGround = false;
+                player.canDoubleJump = false;
+            } else if (player.hasBoots && !player.canDoubleJump) {
+                player.vy = -player.jumpPower;
+                player.canDoubleJump = true;
+            }
+        });
+
+        function update() {
+            gameTime++;
+
+            player.vy += 0.5;
+            player.y += player.vy;
+
+            if (player.y + player.h >= GROUND_Y) {
+                player.y = GROUND_Y - player.h;
+                player.vy = 0;
+                player.onGround = true;
+                player.canDoubleJump = false;
+            } else {
+                player.onGround = false;
+            }
+
+            if (gameTime % 120 === 0 && Math.random() < 0.6) {
+                obstacles.push({
+                    x: Math.random() * (GAME_WIDTH - 30),
+                    y: GROUND_Y - 30,
+                    w: 30,
+                    h: 30,
+                    type: 'explosion'
+                });
+            }
+
+            if (gameTime % 200 === 0) {
+                injured.push({
+                    x: Math.random() * (GAME_WIDTH - 16),
+                    y: GROUND_Y - 20,
+                    w: 16,
+                    h: 16,
+                    rescued: false
+                });
+            }
+
+            if (gameTime % 300 === 0 && Math.random() < 0.4) {
+                items.push({
+                    x: Math.random() * (GAME_WIDTH - 12),
+                    y: GROUND_Y - 20,
+                    w: 12,
+                    h: 12,
+                    type: 'boots'
+                });
+            }
+
+            obstacles.forEach((obs, i) => {
+                if (checkCollision(player, obs)) {
+                    player.hp--;
+                    player.hasBoots = false;
+                    obstacles.splice(i, 1);
+                }
+            });
+
+            items.forEach((item, i) => {
+                if (checkCollision(player, item)) {
+                    if (item.type === 'boots') {
+                        player.hasBoots = true;
+                    }
+                    items.splice(i, 1);
+                }
+            });
+
+            injured.forEach((inj) => {
+                if (checkCollision(player, inj) && !inj.rescued) {
+                    inj.rescued = true;
+                    rescuedCount++;
+                    score += 100;
+                }
+            });
+
+            if (player.hp <= 0) {
+                gameState = 'gameover';
+            }
+
+            if (gameTime > 18000) {
+                gameState = 'stageclear';
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#87ceeb';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            ctx.fillStyle = '#8b7355';
+            ctx.fillRect(0, GROUND_Y, GAME_WIDTH, GAME_HEIGHT - GROUND_Y);
+
+            ctx.fillStyle = '#0066ff';
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            if (player.hasBoots) {
+                ctx.fillStyle = '#ffff00';
+                ctx.fillRect(player.x + 2, player.y + player.h - 4, player.w - 4, 4);
+            }
+
+            obstacles.forEach(obs => {
+                ctx.fillStyle = '#ff6600';
+                ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+            });
+
+            items.forEach(item => {
+                ctx.fillStyle = '#ffff00';
+                ctx.fillRect(item.x, item.y, item.w, item.h);
+            });
+
+            injured.forEach(inj => {
+                if (!inj.rescued) {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillRect(inj.x, inj.y, inj.w, inj.h);
+                }
+            });
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText(`HP: ${player.hp}/${player.maxHp}`, 10, 30);
+            ctx.fillText(`救助: ${rescuedCount}`, 10, 50);
+            ctx.fillText(`スコア: ${score}`, 10, 70);
+            if (player.hasBoots) {
+                ctx.fillText('ブーツ: ON', 10, 90);
+            }
+
+            if (gameState === 'gameover') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 32px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('ゲームオーバー', GAME_WIDTH / 2, GAME_HEIGHT / 2);
+            }
+
+            if (gameState === 'stageclear') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 32px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('ステージクリア！', GAME_WIDTH / 2, GAME_HEIGHT / 2);
+            }
+        }
+
+        function checkCollision(a, b) {
+            return a.x < b.x + b.w &&
+                   a.x + a.w > b.x &&
+                   a.y < b.y + b.h &&
+                   a.y + a.h > b.y;
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
