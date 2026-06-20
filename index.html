@@ -314,12 +314,12 @@
             ctx.fillRect(x+8, y+22, 2, 6);
             ctx.fillRect(x+6, y+24, 6, 2);
 
-            // 点滅するHELP
+            // 点滅するSOS
             if (Math.floor(time / 15) % 2 === 0) {
                 ctx.fillStyle = '#ff0000';
                 ctx.font = 'bold 10px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText('HELP!', x+24, y-5);
+                ctx.fillText('救助!', x+24, y-5);
             }
         }
 
@@ -503,13 +503,13 @@
             ctx.fillStyle = '#00ff00';
             ctx.font = 'bold 20px monospace';
             ctx.textAlign = 'left';
-            ctx.fillText(`STAGE:${stage}`, 30, 50);
+            ctx.fillText(`ステージ:${stage}`, 30, 50);
             let timeLeft = Math.max(0, stageTimes[stage-1] - Math.floor(time/60));
-            ctx.fillText(`TIME:${timeLeft}s`, 30, 80);
-            ctx.fillText(`RESCUED:${rescued}`, 30, 110);
+            ctx.fillText(`時間:${timeLeft}秒`, 30, 80);
+            ctx.fillText(`救助:${rescued}人`, 30, 110);
             ctx.textAlign = 'right';
-            ctx.fillText(`SCORE:${score}`, W-30, 50);
-            ctx.fillText(`HIGH:${highScore}`, W-30, 80);
+            ctx.fillText(`スコア:${score}`, W-30, 50);
+            ctx.fillText(`最高:${highScore}`, W-30, 80);
 
             // 救助テキスト
             if (rescueText && rescueText.show) {
@@ -518,7 +518,7 @@
                 ctx.fillStyle = rescueText.multiplier > 1 ? '#ffff00' : '#00ff00';
                 ctx.textAlign = 'center';
                 ctx.font = 'bold 24px monospace';
-                ctx.fillText('RESCUED!', rescueText.x-scroll, rescueText.y);
+                ctx.fillText('救助成功！', rescueText.x-scroll, rescueText.y);
                 ctx.font = 'bold 18px monospace';
                 ctx.fillText(`+${100*rescueText.multiplier}`, rescueText.x-scroll, rescueText.y+30);
                 ctx.globalAlpha = 1;
@@ -531,7 +531,7 @@
                 ctx.fillStyle = '#ffff00';
                 ctx.textAlign = 'center';
                 ctx.font = 'bold 32px monospace';
-                ctx.fillText(`COMBO x${comboText.combo}`, comboText.x, comboText.y);
+                ctx.fillText(`コンボ x${comboText.combo}`, comboText.x, comboText.y);
                 ctx.globalAlpha = 1;
             }
 
@@ -558,7 +558,7 @@
                     ctx.fillStyle = '#00ff00';
                     ctx.textAlign = 'center';
                     ctx.font = 'bold 18px monospace';
-                    ctx.fillText('EXTRACT', hx+25, H-320);
+                    ctx.fillText('脱出', hx+25, H-320);
                 }
             }
 
@@ -583,36 +583,36 @@
                 ctx.font = 'bold 48px monospace';
 
                 if (gameState === 'start') {
-                    ctx.fillText('BATTLEFIELD MEDIC', W/2, H/2-100);
-                    ctx.fillText('=================', W/2, H/2-30);
+                    ctx.fillText('戦場の衛生兵', W/2, H/2-100);
+                    ctx.fillText('==========', W/2, H/2-30);
                     ctx.font = '28px monospace';
-                    ctx.fillText('SAVE LIVES.', W/2, H/2+50);
-                    ctx.fillText('NOT KILL ENEMIES.', W/2, H/2+100);
+                    ctx.fillText('命を救え。', W/2, H/2+50);
+                    ctx.fillText('敵は倒すな。', W/2, H/2+100);
                     ctx.font = '24px monospace';
-                    ctx.fillText('[TAP TO START]', W/2, H/2+200);
+                    ctx.fillText('[スタートをタップ]', W/2, H/2+200);
                 } else if (gameState === 'gameover') {
-                    ctx.fillText('GAME OVER', W/2, H/2-150);
+                    ctx.fillText('ゲームオーバー', W/2, H/2-150);
                     ctx.font = '20px monospace';
                     ctx.textAlign = 'left';
-                    ctx.fillText(`RESCUED: ${rescued} soldiers`, 100, H/2-20);
-                    ctx.fillText(`DAMAGE: ${damageCount} hits`, 100, H/2+30);
-                    ctx.fillText(`SCORE: ${score} pts`, 100, H/2+80);
-                    ctx.fillText(`HIGH: ${highScore} pts`, 100, H/2+130);
+                    ctx.fillText(`救助: ${rescued} 人`, 100, H/2-20);
+                    ctx.fillText(`被弾: ${damageCount} 回`, 100, H/2+30);
+                    ctx.fillText(`スコア: ${score} ポイント`, 100, H/2+80);
+                    ctx.fillText(`最高記録: ${highScore} ポイント`, 100, H/2+130);
                     ctx.textAlign = 'center';
                     ctx.font = '24px monospace';
-                    ctx.fillText('[TAP TO RESTART]', W/2, H/2+250);
+                    ctx.fillText('[リスタートをタップ]', W/2, H/2+250);
                 } else if (gameState === 'stageclear') {
-                    ctx.fillText('STAGE CLEAR', W/2, H/2-150);
+                    ctx.fillText('ステージクリア', W/2, H/2-150);
                     ctx.font = '20px monospace';
                     ctx.textAlign = 'left';
-                    ctx.fillText(`RESCUED: ${rescued} soldiers`, 100, H/2-20);
-                    ctx.fillText(`DAMAGE: ${damageCount} hits`, 100, H/2+30);
-                    ctx.fillText(`SCORE: ${score} pts`, 100, H/2+80);
-                    ctx.fillText(`HIGH: ${highScore} pts`, 100, H/2+130);
+                    ctx.fillText(`救助: ${rescued} 人`, 100, H/2-20);
+                    ctx.fillText(`被弾: ${damageCount} 回`, 100, H/2+30);
+                    ctx.fillText(`スコア: ${score} ポイント`, 100, H/2+80);
+                    ctx.fillText(`最高記録: ${highScore} ポイント`, 100, H/2+130);
                     ctx.textAlign = 'center';
                     ctx.font = '24px monospace';
-                    if (stage < 3) ctx.fillText('[TAP FOR NEXT STAGE]', W/2, H/2+250);
-                    else ctx.fillText('[MISSION COMPLETE]', W/2, H/2+250);
+                    if (stage < 3) ctx.fillText('[次のステージをタップ]', W/2, H/2+250);
+                    else ctx.fillText('[ミッション完了]', W/2, H/2+250);
                 }
             }
         }
