@@ -53,11 +53,43 @@
         let score = 0;
         let rescuedCount = 0;
         let gameTime = 0;
+        let stage = 1;
         let obstacles = [];
         let items = [];
         let injured = [];
+        let highScore = localStorage.getItem('battlefield_highScore') || 0;
+        let totalRescued = localStorage.getItem('battlefield_totalRescued') || 0;
+        let medals = {
+            rescued10: localStorage.getItem('medal_rescued10') === 'true',
+            rescued100: localStorage.getItem('medal_rescued100') === 'true',
+            noDamage: localStorage.getItem('medal_noDamage') === 'true'
+        };
 
         canvas.addEventListener('click', () => {
+            if (gameState === 'stageclear' && stage < 3) {
+                stage++;
+                gameState = 'playing';
+                gameTime = 0;
+                score = 0;
+                rescuedCount = 0;
+                obstacles = [];
+                items = [];
+                injured = [];
+                player.hp = 5;
+                player.hasBoots = false;
+                player.y = GROUND_Y;
+                player.vy = 0;
+                window.stageCleared = false;
+                return;
+            }
+            if (gameState === 'stageclear' && stage === 3) {
+                location.reload();
+                return;
+            }
+            if (gameState === 'gameover') {
+                location.reload();
+                return;
+            }
             if (player.onGround) {
                 player.vy = -player.jumpPower;
                 player.onGround = false;
@@ -83,34 +115,39 @@
                 player.onGround = false;
             }
 
-            if (gameTime % 120 === 0 && Math.random() < 0.6) {
-                obstacles.push({
-                    x: Math.random() * (GAME_WIDTH - 30),
-                    y: GROUND_Y - 30,
-                    w: 30,
-                    h: 30,
-                    type: 'explosion'
-                });
+            // ステージ別ギミック生成
+            if (stage === 1) {
+                if (gameTime % 120 === 0 && Math.random() < 0.6) {
+                    obstacles.push({x:Math.random()*(GAME_WIDTH-30),y:GROUND_Y-30,w:30,h:30,type:'explosion'});
+                }
+            } else if (stage === 2) {
+                if (gameTime % 100 === 0 && Math.random() < 0.7) {
+                    obstacles.push({x:Math.random()*(GAME_WIDTH-30),y:GROUND_Y-30,w:30,h:30,type:'explosion'});
+                }
+                if (gameTime % 150 === 0 && Math.random() < 0.5) {
+                    obstacles.push({x:0,y:Math.random()*(GROUND_Y-50),w:GAME_WIDTH,h:15,type:'machinegun'});
+                }
+            } else if (stage === 3) {
+                if (gameTime % 90 === 0 && Math.random() < 0.8) {
+                    obstacles.push({x:Math.random()*(GAME_WIDTH-30),y:GROUND_Y-30,w:30,h:30,type:'explosion'});
+                }
+                if (gameTime % 130 === 0 && Math.random() < 0.6) {
+                    obstacles.push({x:0,y:Math.random()*(GROUND_Y-50),w:GAME_WIDTH,h:15,type:'machinegun'});
+                }
+                if (gameTime % 160 === 0 && Math.random() < 0.4) {
+                    obstacles.push({x:Math.random()*(GAME_WIDTH-40),y:GROUND_Y-40,w:40,h:30,type:'barbedwire'});
+                }
+                if (gameTime % 200 === 0 && Math.random() < 0.3) {
+                    obstacles.push({x:Math.random()*(GAME_WIDTH-50),y:0,w:50,h:30,type:'rockfall'});
+                }
             }
 
-            if (gameTime % 200 === 0) {
-                injured.push({
-                    x: Math.random() * (GAME_WIDTH - 16),
-                    y: GROUND_Y - 20,
-                    w: 16,
-                    h: 16,
-                    rescued: false
-                });
+            if (gameTime % (200 - stage * 20) === 0) {
+                injured.push({x:Math.random()*(GAME_WIDTH-16),y:GROUND_Y-20,w:16,h:16,rescued:false});
             }
 
             if (gameTime % 300 === 0 && Math.random() < 0.4) {
-                items.push({
-                    x: Math.random() * (GAME_WIDTH - 12),
-                    y: GROUND_Y - 20,
-                    w: 12,
-                    h: 12,
-                    type: 'boots'
-                });
+                items.push({x:Math.random()*(GAME_WIDTH-12),y:GROUND_Y-20,w:12,h:12,type:'boots'});
             }
 
             obstacles.forEach((obs, i) => {
@@ -140,10 +177,32 @@
 
             if (player.hp <= 0) {
                 gameState = 'gameover';
+                if (!window.scoreSubmitted) {
+                    window.scoreSubmitted = true;
+                    totalRescued = parseInt(totalRescued) + rescuedCount;
+                    if (score > parseInt(highScore)) {
+                        highScore = score;
+                        localStorage.setItem('battlefield_highScore', score);
+                    }
+                    localStorage.setItem('battlefield_totalRescued', totalRescued);
+
+                    if (rescuedCount >= 10) medals.rescued10 = true;
+                    if (totalRescued >= 100) medals.rescued100 = true;
+                    if (player.hp > 0) medals.noDamage = true;
+
+                    localStorage.setItem('medal_rescued10', medals.rescued10);
+                    localStorage.setItem('medal_rescued100', medals.rescued100);
+                    localStorage.setItem('medal_noDamage', medals.noDamage);
+                }
             }
 
-            if (gameTime > 18000) {
+            if (gameTime > (stage === 1 ? 18000 : stage === 2 ? 16000 : 14000)) {
                 gameState = 'stageclear';
+                if (!window.stageCleared) {
+                    window.stageCleared = true;
+                    totalRescued = parseInt(totalRescued) + rescuedCount;
+                    localStorage.setItem('battlefield_totalRescued', totalRescued);
+                }
             }
         }
 
@@ -163,8 +222,19 @@
             }
 
             obstacles.forEach(obs => {
-                ctx.fillStyle = '#ff6600';
-                ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                if (obs.type === 'explosion') {
+                    ctx.fillStyle = '#ff6600';
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                } else if (obs.type === 'machinegun') {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                } else if (obs.type === 'barbedwire') {
+                    ctx.fillStyle = '#ff00ff';
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                } else if (obs.type === 'rockfall') {
+                    ctx.fillStyle = '#666666';
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                }
             });
 
             items.forEach(item => {
@@ -181,12 +251,14 @@
 
             ctx.fillStyle = '#fff';
             ctx.font = 'bold 16px Arial';
-            ctx.fillText(`HP: ${player.hp}/${player.maxHp}`, 10, 30);
-            ctx.fillText(`救助: ${rescuedCount}`, 10, 50);
-            ctx.fillText(`スコア: ${score}`, 10, 70);
+            ctx.fillText(`ステージ ${stage}`, 10, 30);
+            ctx.fillText(`HP: ${player.hp}/${player.maxHp}`, 10, 50);
+            ctx.fillText(`救助: ${rescuedCount}`, 10, 70);
+            ctx.fillText(`スコア: ${score}`, 10, 90);
             if (player.hasBoots) {
-                ctx.fillText('ブーツ: ON', 10, 90);
+                ctx.fillText('ブーツ: ON', 10, 110);
             }
+            ctx.fillText(`最高: ${highScore}`, GAME_WIDTH - 120, 30);
 
             if (gameState === 'gameover') {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -204,6 +276,13 @@
                 ctx.font = 'bold 32px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText('ステージクリア！', GAME_WIDTH / 2, GAME_HEIGHT / 2);
+                ctx.font = '16px Arial';
+                ctx.fillText(`救助: ${rescuedCount} スコア: ${score}`, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60);
+                if (stage < 3) {
+                    ctx.fillText('クリックで次のステージ', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100);
+                } else {
+                    ctx.fillText('ゲーム完了！', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 100);
+                }
             }
         }
 
