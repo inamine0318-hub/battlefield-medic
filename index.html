@@ -61,7 +61,7 @@
         }
 
         function handleInput() {
-            if (gameState === 'start') { gameState = 'playing'; scroll = 0; time = 0; return; }
+            if (gameState === 'start') { reset(); return; }
             if (gameState === 'stageclear' && stage < 3) { stage++; reset(); return; }
             if (gameState === 'stageclear' && stage === 3) {
                 totalRescued += rescued; if (score > highScore) highScore = score;
