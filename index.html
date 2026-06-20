@@ -62,6 +62,7 @@
         let obs = [], inj = [], items = [], particles = [];
         let screenShake = 0, screenFlash = 0, rescueText = null;
         let combo = 0, comboTimer = 0, comboText = null;
+        let heliY = -100, heliAppear = false;
 
         function playSound(freq, dur) {
             try {
@@ -104,6 +105,8 @@
             state = 'playing'; scroll = 0; time = 0; score = 0; rescued = 0;
             obs = []; inj = []; items = []; particles = [];
             player.hp = 5; player.boots = false; player.y = H-100; player.vy = 0;
+            combo = 0; comboTimer = 0; heliY = -100; heliAppear = false;
+            screenShake = 0; screenFlash = 0;
         }
 
         function update() {
@@ -222,7 +225,28 @@
             }
 
             let timeLeft = stageTimes[stage-1] - Math.floor(time/60);
-            if (timeLeft <= 0) state = 'stageclear';
+            if (timeLeft <= 0 && !heliAppear) {
+                heliAppear = true;
+                playSound(200, 0.5);
+            }
+
+            // ヘリコプター降下
+            if (heliAppear) {
+                heliY += 0.5;
+                if (heliY > 150) heliY = 150;
+
+                // ヘリに接触したらクリア
+                if (player.x < W/2+40 && player.x+player.w > W/2-40 && player.y < heliY+30 && player.y+player.h > heliY) {
+                    state = 'stageclear';
+                }
+            }
+
+            if (timeLeft <= 0) {
+                // ヘリ出現から30秒後は自動クリア
+                if (heliAppear && Math.floor(time/60) - stageTimes[stage-1] > 30) {
+                    state = 'stageclear';
+                }
+            }
         }
 
         function drawPixelSprite(x, y, pattern, color) {
@@ -367,6 +391,44 @@
             // プレイヤー
             if (player.inv % 10 < 5) {
                 drawMedic(player.x, player.y);
+            }
+
+            // ヘリコプター
+            if (heliAppear) {
+                // ボディ
+                ctx.fillStyle = '#00aa00';
+                ctx.fillRect(W/2-40, heliY, 80, 30);
+                // キャビン
+                ctx.fillStyle = '#0088ff';
+                ctx.fillRect(W/2-20, heliY+5, 40, 12);
+                // ローター（回転）
+                ctx.strokeStyle = '#666666';
+                ctx.lineWidth = 2;
+                let rotorAngle = (time / 5) % (Math.PI * 2);
+                ctx.beginPath();
+                ctx.moveTo(W/2-50, heliY-20);
+                ctx.lineTo(W/2+50, heliY-20);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(W/2, heliY-70);
+                ctx.lineTo(W/2, heliY+10);
+                ctx.stroke();
+                // 着陸用ロープ
+                ctx.strokeStyle = '#999999';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(W/2-15, heliY+30);
+                ctx.lineTo(W/2-15, heliY+100);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(W/2+15, heliY+30);
+                ctx.lineTo(W/2+15, heliY+100);
+                ctx.stroke();
+                // 'EXTRACT' テキスト
+                ctx.fillStyle = '#00ff00';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 10px monospace';
+                ctx.fillText('EXTRACT', W/2, heliY-25);
             }
 
             // UI
