@@ -5,21 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>戦場の衛生兵</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background: #1a1a1a;
-            font-family: Arial, sans-serif;
-        }
-        canvas {
-            border: 3px solid #333;
-            background: #2a3a4a;
-            image-rendering: pixelated;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-        }
+        * { margin: 0; padding: 0; }
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #0a0a0a; }
+        canvas { border: 2px solid #333; background: #1a1a2e; image-rendering: pixelated; }
     </style>
 </head>
 <body>
@@ -27,460 +15,278 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const W = 360, H = 640, GY = 580;
 
-        const GAME_WIDTH = 360, GAME_HEIGHT = 640, GROUND_Y = 580;
-        const STAGE_TIMES = [300, 280, 260]; // 秒単位
-        const STAGE_NAMES = ['海岸戦線', '塹壕地帯', '廃墟の村'];
-
-        // 衛生兵プレイヤー
         const player = {
-            x: GAME_WIDTH / 2 - 8,
-            y: GROUND_Y - 20,
-            w: 16,
-            h: 20,
-            vy: 0,
-            jumpPower: 12,
-            onGround: true,
-            canDoubleJump: false,
-            hp: 5,
-            maxHp: 5,
-            hasBoots: false,
-            invincible: 0,
-            color: '#00ff00'
+            x: W/2-8, y: GY-20, w: 16, h: 20, vy: 0, vx: 0, jmp: 12, onGround: true, canDJ: false,
+            hp: 5, maxHp: 5, boots: false, inv: 0, frame: 0, speed: 3.5
         };
 
-        let gameState = 'start';
-        let stage = 1;
-        let gameTime = 0;
-        let stageTimer = STAGE_TIMES[0];
-        let score = 0;
-        let rescuedCount = 0;
-        let totalRescued = parseInt(localStorage.getItem('bf_totalRescued')) || 0;
-        let highScore = parseInt(localStorage.getItem('bf_highScore')) || 0;
+        let state = 'start', stage = 1, time = 0, stageTime = [300, 280, 260], score = 0, rescued = 0;
+        let totalRescued = parseInt(localStorage.getItem('bf_total')) || 0, highScore = parseInt(localStorage.getItem('bf_high')) || 0;
+        let obs = [], inj = [], items = [], particles = [];
 
-        let obstacles = [], injured = [], items = [], particles = [];
-
-        // 効果音シミュレーション（Web Audio API簡易版）
-        function playSound(type) {
+        function playSound(freq, dur) {
             try {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = audioContext.createOscillator();
-                const gain = audioContext.createGain();
-                osc.connect(gain);
-                gain.connect(audioContext.destination);
-
-                if (type === 'jump') {
-                    osc.frequency.value = 400;
-                    gain.gain.setValueAtTime(0.1, audioContext.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-                    osc.start(audioContext.currentTime);
-                    osc.stop(audioContext.currentTime + 0.1);
-                } else if (type === 'rescue') {
-                    osc.frequency.value = 800;
-                    gain.gain.setValueAtTime(0.1, audioContext.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-                    osc.start(audioContext.currentTime);
-                    osc.stop(audioContext.currentTime + 0.3);
-                } else if (type === 'explosion') {
-                    osc.frequency.value = 100;
-                    gain.gain.setValueAtTime(0.15, audioContext.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-                    osc.start(audioContext.currentTime);
-                    osc.stop(audioContext.currentTime + 0.2);
-                }
-            } catch (e) {}
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator(), gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur);
+                osc.start(ctx.currentTime); osc.stop(ctx.currentTime + dur);
+            } catch(e) {}
         }
 
-        // パーティクル生成
-        function createParticles(x, y, color, count) {
-            for (let i = 0; i < count; i++) {
-                particles.push({
-                    x, y,
-                    vx: (Math.random() - 0.5) * 4,
-                    vy: (Math.random() - 0.5) * 4 - 2,
-                    color,
-                    life: 30,
-                    maxLife: 30
-                });
+        function particle(x, y, c, n) {
+            for (let i = 0; i < n; i++) {
+                particles.push({x, y, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*5-2, c, l: 30, ml: 30});
             }
         }
 
-        // キャンバスクリックでゲーム開始・ジャンプ
         canvas.addEventListener('click', () => {
-            if (gameState === 'start') {
-                gameState = 'playing';
-                gameTime = 0;
-                stageTimer = STAGE_TIMES[stage - 1];
-                return;
-            }
-            if (gameState === 'stageclear' && stage < 3) {
-                stage++;
-                resetStage();
-                return;
-            }
-            if (gameState === 'stageclear' && stage === 3) {
-                saveAndReload();
-                return;
-            }
-            if (gameState === 'gameover') {
-                location.reload();
-                return;
-            }
-            if (gameState === 'playing') {
-                if (player.onGround) {
-                    player.vy = -player.jumpPower;
-                    player.onGround = false;
-                    player.canDoubleJump = false;
-                    playSound('jump');
-                } else if (player.hasBoots && !player.canDoubleJump) {
-                    player.vy = -player.jumpPower;
-                    player.canDoubleJump = true;
-                    playSound('jump');
-                }
+            if (state === 'start') { state = 'playing'; time = 0; return; }
+            if (state === 'stageclear' && stage < 3) { stage++; reset(); return; }
+            if (state === 'stageclear' && stage === 3) { totalRescued += rescued; if (score > highScore) highScore = score; localStorage.setItem('bf_total', totalRescued); localStorage.setItem('bf_high', highScore); location.reload(); return; }
+            if (state === 'gameover') { location.reload(); return; }
+            if (state === 'playing') {
+                if (player.onGround) { player.vy = -player.jmp; player.onGround = false; player.canDJ = false; playSound(400, 0.1); }
+                else if (player.boots && !player.canDJ) { player.vy = -player.jmp; player.canDJ = true; playSound(500, 0.1); }
             }
         });
 
-        function resetStage() {
-            gameState = 'playing';
-            gameTime = 0;
-            stageTimer = STAGE_TIMES[stage - 1];
-            score = 0;
-            rescuedCount = 0;
-            obstacles = [];
-            injured = [];
-            items = [];
-            particles = [];
-            player.hp = 5;
-            player.hasBoots = false;
-            player.y = GROUND_Y - 20;
-            player.vy = 0;
-        }
-
-        function saveAndReload() {
-            totalRescued += rescuedCount;
-            if (score > highScore) highScore = score;
-            localStorage.setItem('bf_totalRescued', totalRescued);
-            localStorage.setItem('bf_highScore', highScore);
-            location.reload();
+        function reset() {
+            state = 'playing'; time = 0; score = 0; rescued = 0; obs = []; inj = []; items = []; particles = [];
+            player.hp = 5; player.boots = false; player.y = GY-20; player.vy = 0;
         }
 
         function update() {
-            if (gameState !== 'playing') return;
+            if (state !== 'playing') return;
+            time++; player.frame++;
+            player.vy += 0.6; player.y += player.vy;
+            if (player.y + player.h >= GY) { player.y = GY - player.h; player.vy = 0; player.onGround = true; player.canDJ = false; }
+            else player.onGround = false;
+            player.inv = Math.max(0, player.inv - 1);
 
-            gameTime++;
-            stageTimer = Math.max(0, STAGE_TIMES[stage - 1] - Math.floor(gameTime / 60));
-
-            // プレイヤー重力
-            player.vy += 0.6;
-            player.y += player.vy;
-
-            if (player.y + player.h >= GROUND_Y) {
-                player.y = GROUND_Y - player.h;
-                player.vy = 0;
-                player.onGround = true;
-                player.canDoubleJump = false;
-            } else {
-                player.onGround = false;
-            }
-
-            player.invincible = Math.max(0, player.invincible - 1);
-
-            // ギミック生成（ステージ別）
             if (stage === 1) {
-                if (gameTime % 90 === 0 && Math.random() < 0.7) {
-                    obstacles.push({
-                        x: Math.random() * (GAME_WIDTH - 40),
-                        y: GROUND_Y - 40,
-                        w: 40,
-                        h: 40,
-                        type: 'explosion',
-                        timer: 0
-                    });
-                }
+                if (time % 90 === 0 && Math.random() < 0.7) obs.push({x: Math.random()*(W-40), y: GY-40, w: 40, h: 40, t: 'exp'});
             } else if (stage === 2) {
-                if (gameTime % 80 === 0 && Math.random() < 0.8) {
-                    obstacles.push({
-                        x: Math.random() * (GAME_WIDTH - 40),
-                        y: GROUND_Y - 40,
-                        w: 40,
-                        h: 40,
-                        type: 'explosion'
-                    });
-                }
-                if (gameTime % 120 === 0 && Math.random() < 0.6) {
-                    obstacles.push({
-                        x: 0,
-                        y: Math.random() * (GROUND_Y - 100) + 50,
-                        w: GAME_WIDTH,
-                        h: 20,
-                        type: 'machinegun'
-                    });
-                }
+                if (time % 80 === 0 && Math.random() < 0.8) obs.push({x: Math.random()*(W-40), y: GY-40, w: 40, h: 40, t: 'exp'});
+                if (time % 120 === 0 && Math.random() < 0.6) obs.push({x: 0, y: Math.random()*(GY-100)+50, w: W, h: 20, t: 'mg'});
             } else if (stage === 3) {
-                if (gameTime % 70 === 0 && Math.random() < 0.9) {
-                    obstacles.push({
-                        x: Math.random() * (GAME_WIDTH - 40),
-                        y: GROUND_Y - 40,
-                        w: 40,
-                        h: 40,
-                        type: 'explosion'
-                    });
-                }
-                if (gameTime % 110 === 0 && Math.random() < 0.7) {
-                    obstacles.push({
-                        x: 0,
-                        y: Math.random() * (GROUND_Y - 100) + 50,
-                        w: GAME_WIDTH,
-                        h: 20,
-                        type: 'machinegun'
-                    });
-                }
-                if (gameTime % 150 === 0 && Math.random() < 0.5) {
-                    obstacles.push({
-                        x: Math.random() * (GAME_WIDTH - 50),
-                        y: GROUND_Y - 30,
-                        w: 50,
-                        h: 30,
-                        type: 'barbedwire'
-                    });
-                }
-                if (gameTime % 180 === 0 && Math.random() < 0.4) {
-                    obstacles.push({
-                        x: Math.random() * (GAME_WIDTH - 60),
-                        y: 0,
-                        w: 60,
-                        h: 40,
-                        type: 'rockfall'
-                    });
-                }
+                if (time % 70 === 0 && Math.random() < 0.9) obs.push({x: Math.random()*(W-40), y: GY-40, w: 40, h: 40, t: 'exp'});
+                if (time % 110 === 0 && Math.random() < 0.7) obs.push({x: 0, y: Math.random()*(GY-100)+50, w: W, h: 20, t: 'mg'});
+                if (time % 150 === 0 && Math.random() < 0.5) obs.push({x: Math.random()*(W-50), y: GY-30, w: 50, h: 30, t: 'wire'});
+                if (time % 180 === 0 && Math.random() < 0.4) obs.push({x: Math.random()*(W-60), y: 0, w: 60, h: 40, t: 'rock'});
             }
 
-            // 負傷兵生成
-            if (gameTime % (180 - stage * 20) === 0) {
-                injured.push({
-                    x: Math.random() * (GAME_WIDTH - 16),
-                    y: GROUND_Y - 25,
-                    w: 16,
-                    h: 16,
-                    rescued: false,
-                    color: '#ff4444'
-                });
-            }
+            if (time % (180-stage*20) === 0) inj.push({x: Math.random()*(W-16), y: GY-25, w: 16, h: 16, res: false});
+            if (time % 300 === 0 && Math.random() < 0.5) items.push({x: Math.random()*(W-12), y: GY-20, w: 12, h: 12, t: 'boots'});
 
-            // アイテム生成
-            if (gameTime % 300 === 0 && Math.random() < 0.5) {
-                items.push({
-                    x: Math.random() * (GAME_WIDTH - 12),
-                    y: GROUND_Y - 20,
-                    w: 12,
-                    h: 12,
-                    type: 'boots',
-                    color: '#ffff00'
-                });
-            }
-
-            // 衝突判定
-            obstacles.forEach((obs, i) => {
-                if (player.invincible <= 0 && checkCollision(player, obs)) {
-                    player.hp--;
-                    player.hasBoots = false;
-                    player.invincible = 30;
-                    createParticles(player.x + player.w / 2, player.y + player.h / 2, '#ff6666', 8);
-                    playSound('explosion');
-                    obstacles.splice(i, 1);
+            obs.forEach((o, i) => {
+                if (player.inv <= 0 && player.x < o.x+o.w && player.x+player.w > o.x && player.y < o.y+o.h && player.y+player.h > o.y) {
+                    player.hp--; player.boots = false; player.inv = 30;
+                    particle(player.x+player.w/2, player.y+player.h/2, '#ff4444', 8);
+                    playSound(100, 0.2);
+                    obs.splice(i, 1);
                 }
             });
 
-            items.forEach((item, i) => {
-                if (checkCollision(player, item)) {
-                    player.hasBoots = true;
-                    createParticles(item.x, item.y, '#ffff00', 6);
-                    items.splice(i, 1);
+            items.forEach((it, i) => {
+                if (player.x < it.x+it.w && player.x+player.w > it.x && player.y < it.y+it.h && player.y+player.h > it.y) {
+                    player.boots = true; particle(it.x, it.y, '#ffff00', 6); items.splice(i, 1);
                 }
             });
 
-            injured.forEach((inj) => {
-                if (checkCollision(player, inj) && !inj.rescued) {
-                    inj.rescued = true;
-                    rescuedCount++;
-                    score += 100;
-                    createParticles(inj.x + inj.w / 2, inj.y + inj.h / 2, '#00ff00', 10);
-                    playSound('rescue');
+            inj.forEach(i => {
+                if (player.x < i.x+i.w && player.x+player.w > i.x && player.y < i.y+i.h && player.y+player.h > i.y && !i.res) {
+                    i.res = true; rescued++; score += 100;
+                    particle(i.x+i.w/2, i.y+i.h/2, '#00ff00', 10);
+                    playSound(800, 0.3);
                 }
             });
 
-            // パーティクル更新
             particles = particles.filter(p => {
-                p.x += p.vx;
-                p.y += p.vy;
-                p.vy += 0.3;
-                p.life--;
-                return p.life > 0;
+                p.x += p.vx; p.y += p.vy; p.vy += 0.3; p.l--;
+                return p.l > 0;
             });
 
-            // ゲームオーバー
             if (player.hp <= 0) {
-                gameState = 'gameover';
-                totalRescued += rescuedCount;
+                state = 'gameover';
+                totalRescued += rescued;
                 if (score > highScore) highScore = score;
-                localStorage.setItem('bf_totalRescued', totalRescued);
-                localStorage.setItem('bf_highScore', highScore);
+                localStorage.setItem('bf_total', totalRescued);
+                localStorage.setItem('bf_high', highScore);
             }
 
-            // ステージクリア
-            if (stageTimer <= 0) {
-                gameState = 'stageclear';
+            let timeLeft = stageTime[stage-1] - Math.floor(time/60);
+            if (timeLeft <= 0) state = 'stageclear';
+        }
+
+        function drawPixel(x, y, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, 1, 1);
+        }
+
+        function drawChar() {
+            let frame = Math.floor(player.frame / 10) % 4;
+            let ox = player.x, oy = player.y;
+
+            // 衛生兵: 緑ユニフォーム + 赤十字 + 走行アニメ
+            ctx.fillStyle = '#00aa00';
+            ctx.fillRect(ox+4, oy, 8, 14);
+            ctx.fillStyle = '#008800';
+            ctx.fillRect(ox+2, oy+4, 3, 6);
+            ctx.fillRect(ox+11, oy+4, 3, 6);
+
+            // 走行アニメーション (脚の動き)
+            let legY = oy + 14 + (Math.sin(frame * Math.PI / 2) * 2);
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(ox+5, legY, 2, 4);
+            ctx.fillRect(ox+9, legY, 2, 4);
+
+            // 頭
+            ctx.fillStyle = '#ffcc99';
+            ctx.fillRect(ox+5, oy-3, 6, 4);
+
+            // 赤十字 (衛生兵の象徴)
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(ox+7, oy+8, 2, 3);
+            ctx.fillRect(ox+6, oy+9, 4, 2);
+
+            // ブーツ
+            if (player.boots) {
+                ctx.fillStyle = '#ffff00';
+                ctx.fillRect(ox+3, oy+18, 10, 2);
             }
         }
 
         function draw() {
-            // 背景
-            ctx.fillStyle = '#2a3a4a';
-            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+            // 背景: 戦場
+            ctx.fillStyle = '#0d1b2a';
+            ctx.fillRect(0, 0, W, H);
 
-            // 瓦礫背景
-            ctx.fillStyle = '#444444';
+            // 砲撃跡背景
+            ctx.fillStyle = '#1a2633';
+            for (let i = 0; i < 10; i++) {
+                ctx.fillRect(Math.sin(time*0.01+i)*50+80, i*60+50, 60, 30);
+            }
+
+            // 瓦礫
+            ctx.fillStyle = '#333333';
+            for (let i = 0; i < 15; i++) {
+                ctx.fillRect(Math.cos(time*0.005+i*0.5)*80+100, i*40+60, 40, 20);
+            }
+
+            // 血痕表現
+            ctx.fillStyle = 'rgba(255, 50, 50, 0.2)';
             for (let i = 0; i < 5; i++) {
-                ctx.fillRect(Math.sin(gameTime * 0.01 + i) * 100 + 50, i * 120 + 100, 40, 30);
+                ctx.fillRect(Math.sin(i)*100+150, 300+i*50, 80, 30);
             }
 
             // 地面
-            ctx.fillStyle = '#4a4a3a';
-            ctx.fillRect(0, GROUND_Y, GAME_WIDTH, GAME_HEIGHT - GROUND_Y);
+            ctx.fillStyle = '#2a2a1a';
+            ctx.fillRect(0, GY, W, H-GY);
 
-            // ギミック描画
-            obstacles.forEach(obs => {
-                if (obs.type === 'explosion') {
+            // ギミック
+            obs.forEach(o => {
+                if (o.t === 'exp') {
                     ctx.fillStyle = '#ff6600';
-                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    ctx.fillRect(o.x, o.y, o.w, o.h);
                     ctx.fillStyle = '#ffaa00';
-                    ctx.fillRect(obs.x + 4, obs.y + 4, obs.w - 8, obs.h - 8);
-                } else if (obs.type === 'machinegun') {
+                    ctx.fillRect(o.x+4, o.y+4, o.w-8, o.h-8);
+                } else if (o.t === 'mg') {
                     ctx.fillStyle = '#ffff00';
-                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    ctx.fillRect(o.x, o.y, o.w, o.h);
                     ctx.fillStyle = '#ff8800';
-                    for (let i = 0; i < 5; i++) {
-                        ctx.fillRect(obs.x + i * 70, obs.y, 30, obs.h);
-                    }
-                } else if (obs.type === 'barbedwire') {
+                    for (let i = 0; i < 5; i++) ctx.fillRect(o.x+i*70, o.y, 30, o.h);
+                } else if (o.t === 'wire') {
                     ctx.fillStyle = '#ff00ff';
-                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
-                } else if (obs.type === 'rockfall') {
+                    ctx.fillRect(o.x, o.y, o.w, o.h);
+                } else if (o.t === 'rock') {
                     ctx.fillStyle = '#666666';
-                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    ctx.fillRect(o.x, o.y, o.w, o.h);
                 }
             });
 
-            // 負傷兵描画
-            injured.forEach(inj => {
-                if (!inj.rescued) {
+            // 負傷兵: 赤い人型
+            inj.forEach(i => {
+                if (!i.res) {
                     ctx.fillStyle = '#ff4444';
-                    ctx.fillRect(inj.x, inj.y, inj.w, inj.h);
-                    ctx.fillStyle = '#ff8888';
-                    ctx.fillRect(inj.x + 2, inj.y + 2, inj.w - 4, inj.h - 4);
+                    ctx.fillRect(i.x+2, i.y, 4, 6);
+                    ctx.fillRect(i.x, i.y+6, 8, 4);
+                    ctx.fillRect(i.x+1, i.y+10, 3, 6);
+                    ctx.fillRect(i.x+4, i.y+10, 3, 6);
                 }
             });
 
-            // アイテム描画
-            items.forEach(item => {
+            // アイテム: ブーツ
+            items.forEach(it => {
                 ctx.fillStyle = '#ffff00';
-                ctx.fillRect(item.x, item.y, item.w, item.h);
+                ctx.fillRect(it.x, it.y, it.w, it.h);
                 ctx.fillStyle = '#ffaa00';
-                ctx.fillRect(item.x + 1, item.y + 1, item.w - 2, item.h - 2);
+                ctx.fillRect(it.x+1, it.y+1, it.w-2, it.h-2);
             });
 
-            // プレイヤー描画（衛生兵）
-            if (player.invincible % 10 < 5) {
-                ctx.fillStyle = player.color;
-                ctx.fillRect(player.x, player.y, player.w, player.h);
-                ctx.fillStyle = '#00aa00';
-                ctx.fillRect(player.x + 3, player.y, 3, 4);
-                ctx.fillRect(player.x + 10, player.y, 3, 4);
-
-                if (player.hasBoots) {
-                    ctx.fillStyle = '#ffff00';
-                    ctx.fillRect(player.x + 2, player.y + player.h - 3, player.w - 4, 3);
-                }
-            }
-
-            // パーティクル描画
+            // パーティクル
             particles.forEach(p => {
-                ctx.globalAlpha = p.life / p.maxLife;
-                ctx.fillStyle = p.color;
-                ctx.fillRect(p.x - 1, p.y - 1, 2, 2);
-                ctx.globalAlpha = 1;
+                ctx.globalAlpha = p.l / p.ml;
+                ctx.fillStyle = p.c;
+                ctx.fillRect(p.x-1, p.y-1, 2, 2);
             });
+            ctx.globalAlpha = 1;
 
-            // UI描画
+            // プレイヤー
+            if (player.inv % 10 < 5) drawChar();
+
+            // UI
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 14px Arial';
-
-            // ステージ情報
+            ctx.font = 'bold 12px monospace';
             ctx.textAlign = 'left';
-            ctx.fillText(`ステージ ${stage}: ${STAGE_NAMES[stage - 1]}`, 10, 20);
-            ctx.fillText(`時間: ${Math.ceil(stageTimer)}秒`, 10, 40);
-
-            // HP（ハート）
-            ctx.fillStyle = '#ff0000';
-            for (let i = 0; i < player.hp; i++) {
-                ctx.fillText('❤', 10 + i * 15, 60);
-            }
-
-            // 救助人数
-            ctx.fillStyle = '#00ff00';
-            ctx.fillText(`救助: ${rescuedCount}`, 10, 80);
-
-            // スコア
-            ctx.fillStyle = '#ffff00';
+            ctx.fillText(`Stage ${stage}: ${['海岸戦線','塹壕地帯','廃墟の村'][stage-1]}`, 10, 20);
+            let timeLeft = Math.max(0, stageTime[stage-1] - Math.floor(time/60));
+            ctx.fillText(`Time: ${timeLeft}s`, 10, 35);
+            ctx.fillText(`HP: ${player.hp}/${player.maxHp}`, 10, 50);
+            ctx.fillText(`Rescued: ${rescued}`, 10, 65);
             ctx.textAlign = 'right';
-            ctx.fillText(`スコア: ${score}`, GAME_WIDTH - 10, 20);
-            ctx.fillText(`最高: ${highScore}`, GAME_WIDTH - 10, 40);
+            ctx.fillText(`Score: ${score}`, W-10, 20);
+            ctx.fillText(`High: ${highScore}`, W-10, 35);
 
-            // ゲーム状態表示
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+            // ゲーム状態
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+            ctx.fillRect(0, 0, W, H);
 
             ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
-            ctx.font = 'bold 24px Arial';
+            ctx.font = 'bold 20px monospace';
 
-            if (gameState === 'start') {
-                ctx.fillText('戦場の衛生兵', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40);
-                ctx.font = '14px Arial';
-                ctx.fillText('クリックでゲーム開始', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20);
-                ctx.fillText('武器を持たず、人を助ける', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40);
-            } else if (gameState === 'playing') {
+            if (state === 'start') {
+                ctx.fillText('戦場の衛生兵', W/2, H/2-40);
+                ctx.font = '12px monospace';
+                ctx.fillText('武器を持たず、人を助ける', W/2, H/2+10);
+                ctx.fillText('Click to Start', W/2, H/2+40);
+            } else if (state === 'playing') {
                 ctx.globalAlpha = 0;
-            } else if (gameState === 'gameover') {
-                ctx.fillText('ゲームオーバー', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20);
-                ctx.font = '16px Arial';
-                ctx.fillText(`救助: ${rescuedCount}人 スコア: ${score}`, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20);
-                ctx.fillText('クリックでリスタート', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60);
-            } else if (gameState === 'stageclear') {
-                ctx.fillText('ステージクリア！', GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20);
-                ctx.font = '16px Arial';
-                ctx.fillText(`救助: ${rescuedCount}人 スコア: ${score}`, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 20);
+            } else if (state === 'gameover') {
+                ctx.fillText('Game Over', W/2, H/2-20);
+                ctx.font = '14px monospace';
+                ctx.fillText(`Rescued: ${rescued} | Score: ${score}`, W/2, H/2+20);
+                ctx.fillText('Click to Restart', W/2, H/2+60);
+            } else if (state === 'stageclear') {
+                ctx.fillText('Stage Clear!', W/2, H/2-20);
+                ctx.font = '14px monospace';
+                ctx.fillText(`Rescued: ${rescued} | Score: ${score}`, W/2, H/2+20);
                 if (stage < 3) {
-                    ctx.fillText('クリックで次のステージ', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60);
+                    ctx.fillText('Click for Next Stage', W/2, H/2+60);
                 } else {
-                    ctx.fillText('すべてのステージを完了！', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 60);
+                    ctx.fillText('Mission Complete!', W/2, H/2+60);
                 }
             }
-
             ctx.globalAlpha = 1;
         }
 
-        function checkCollision(a, b) {
-            return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-        }
-
-        function gameLoop() {
-            update();
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
-
-        gameLoop();
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
+        loop();
     </script>
 </body>
 </html>
