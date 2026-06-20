@@ -78,8 +78,14 @@
             }
         }
 
-        canvas.addEventListener('click', handleInput);
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(); }, false);
+        function onInput() {
+            handleInput();
+        }
+
+        canvas.addEventListener('click', onInput);
+        canvas.addEventListener('touchstart', onInput, false);
+        document.addEventListener('click', onInput);
+        document.addEventListener('touchstart', onInput, false);
 
         function reset() {
             gameState = 'playing'; scroll = 0; time = 0; score = 0; rescued = 0;
