@@ -35,18 +35,23 @@ const P={x:PX, y:GY-22, w:12, h:22, vy:0, onG:true, dj:false,
          hp:5, mhp:5, boots:false, vest:false, grenade:false, inv:0, fr:0};
 const JMP=9, GR=0.38;
 const BTN_X=W-22, BTN_Y=H-22, BTN_R=18; // アクションボタン中心・半径
+const WARN_FRAMES=65; // 障害物スポーン警告フレーム数
 
 let gs='start', stage=1, scroll=0, spd=1.2, t=0;
 let score=0, rescued=0;
 let totR=parseInt(localStorage.getItem('bf_total'))||0;
 let best=parseInt(localStorage.getItem('bf_high'))||0;
 let obs=[], inj=[], items=[], parts=[], smokes=[];
+let pending=[], mortars=[]; // 警告キュー・モルタル
 let shake=0, flash=0, rtxt=null, combo=0, ctmr=0, ctxt=null;
 let heliP=7300, heliR=false, dmg=0, gmsg='', safeZ=0;
 let smokePuffs=[]; // 煙幕パフ配列（ワールド座標）
 const GOALS=[2,3,5];
 
-function snd(f,d){try{const ac=new(AudioContext||webkitAudioContext)(),o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=f;g.gain.setValueAtTime(.1,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}}
+function snd(f,d){
+    const af=P.hp===1?f*1.25:f; // 瀕死時ピッチ+25%
+    try{const ac=new(AudioContext||webkitAudioContext)(),o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=af;g.gain.setValueAtTime(.1,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}
+}
 function px(x,y,w,h){ctx.fillRect(Math.floor(x),Math.floor(y),w,h);}
 function spark(x,y,c,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*3,vy:(Math.random()-.5)*3-1,c,l:20,ml:20});}
 
@@ -112,7 +117,7 @@ function rst(){
     P.hp=5; P.boots=false; P.vest=false; P.grenade=false;
     P.y=GY-P.h; P.vy=0; P.onG=true; P.inv=0; P.fr=0;
     combo=0; ctmr=0; heliP=7300; heliR=false; shake=0; flash=0; dmg=0; gmsg='';
-    safeZ=heliP-900; smokePuffs=[];
+    safeZ=heliP-900; smokePuffs=[]; pending=[]; mortars=[];
 }
 function save(){totR+=rescued;if(score>best)best=score;localStorage.setItem('bf_total',totR);localStorage.setItem('bf_high',best);}
 
@@ -134,17 +139,49 @@ function update(){
         const df=1+(scroll/heliP)*.8;
         if(t%Math.max(28,Math.floor(70/df))===0){
             const r=Math.random();
-            if(r<.6)            obs.push({sx:gx,sy:GY-13,w:13,h:13,t:'exp'});
-            else if(r<.8&&stage>=2) obs.push({sx:gx,sy:GY-11,w:W*.5,h:7,t:'mg'});
-            else if(stage>=3)       obs.push({sx:gx,sy:GY-9,w:11,h:9,t:'wire'});
+            // obs.pushの代わりにpendingキューへ（WARN_FRAMES後にスポーン）
+            if(r<.6)                pending.push({sy:GY-13,w:13,h:13,type:'exp', delay:WARN_FRAMES});
+            else if(r<.8&&stage>=2) pending.push({sy:GY-11,w:W*.5,h:7,type:'mg',  delay:WARN_FRAMES});
+            else if(stage>=3)       pending.push({sy:GY-9, w:11,h:9, type:'wire',delay:WARN_FRAMES});
         }
-        const ii=Math.max(50,Math.floor((160-stage*15)/df));
+        // モルタル砲（480fごと、着弾予測地点はプレイヤー前方）
+        if(t%480===0&&Math.random()<.45){
+            const tx=scroll+PX+120+(Math.random()-.5)*60; // プレイヤー前方ワールド座標
+            mortars.push({sx:tx,state:'warn',life:0,maxLife:100,r:18});
+        }
+        const df2=1+(scroll/heliP)*.8;
+        const ii=Math.max(50,Math.floor((160-stage*15)/df2));
         if(t%ii===0) inj.push({sx:gx,sy:GY-10,w:12,h:10,res:false});
         if(t%280===0&&Math.random()<.5)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'boots'});
         if(t%320===0&&Math.random()<.4)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'vest'});
         if(t%380===0&&Math.random()<.35) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
         if(t%350===0&&Math.random()<.3&&P.hp<P.mhp) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'});
     }
+
+    // pendingキュー処理：カウントダウン→obsへ移動
+    pending.forEach(p=>{
+        p.delay--;
+        if(p.delay<=0){obs.push({sx:scroll+W,sy:p.sy,w:p.w,h:p.h,t:p.type});p.done=true;}
+    });
+    pending=pending.filter(p=>!p.done);
+
+    // モルタル更新
+    mortars.forEach(m=>{
+        m.life++;
+        if(m.state==='warn'&&m.life>=m.maxLife){
+            m.state='boom'; m.life=0; m.maxLife=22;
+            spark(m.sx-scroll,GY-6,'#ff8800',18); snd(75,.35);
+            // 爆発ダメージ（1フレーム目のみ、P.inv/inSmoke考慮）
+            if(P.inv<=0&&!inSmoke()){
+                const edx=(P.x+P.w/2)-(m.sx-scroll);
+                if(Math.abs(edx)<22&&P.y+P.h>GY-14){
+                    if(P.vest){P.vest=false;P.inv=20;shake=3;spark(m.sx-scroll,GY-8,'#4488ff',12);snd(200,.2);}
+                    else{P.hp--;P.boots=false;P.inv=30;P.vy=-5;dmg++;shake=5;flash=15;snd(90,.25);}
+                }
+            }
+        }
+    });
+    mortars=mortars.filter(m=>!(m.state==='boom'&&m.life>=m.maxLife)&&m.sx-scroll>-80);
 
     // 煙幕パフ更新（成長・フェード）
     smokePuffs=smokePuffs.filter(p=>{
@@ -189,7 +226,8 @@ function update(){
         if(P.x<dx+s.w&&P.x+P.w>dx&&P.y<s.sy+s.h&&P.y+P.h>s.sy){
             s.res=true; rescued++; combo++; ctmr=120;
             const mul=Math.min(5,Math.floor(combo/2)+1);
-            score+=100*mul; shake=3;
+            const adren=P.hp===1?2:1; // 瀕死アドレナリン×2
+            score+=100*mul*adren; shake=3;
             rtxt={x:dx+s.w/2,y:s.sy,t:25,mul};
             if(combo>1)ctxt={x:W/2,y:30,t:40,n:combo};
             spark(dx+s.w/2,s.sy+s.h/2,'#00ff88',10); snd(780,.3);
@@ -599,6 +637,52 @@ function draw(){
     });
 
     drawObs();
+
+    // モルタル砲描画（地面上の警告サークル→爆発）
+    mortars.forEach(m=>{
+        const dx=m.sx-scroll;
+        if(dx<-50||dx>W+50)return;
+        if(m.state==='warn'){
+            const fast=m.life>72;
+            const blink=Math.floor(t/(fast?3:7))%2===0;
+            ctx.globalAlpha=.8;
+            ctx.strokeStyle=blink?'#ff2200':'#ff7700';
+            ctx.lineWidth=2;
+            ctx.beginPath();ctx.arc(dx,GY,m.r,0,Math.PI,true);ctx.stroke(); // 上半円
+            if(blink){
+                ctx.fillStyle='#ff3300';ctx.globalAlpha=.28;
+                ctx.beginPath();ctx.arc(dx,GY,m.r,0,Math.PI,true);ctx.fill();
+            }
+            ctx.globalAlpha=1;
+            ctx.fillStyle=blink?'#ff2200':'#cc4400';
+            px(dx-1,GY-Math.round(m.r*.6),2,Math.round(m.r*.6)); // 縦線
+            px(dx-4,GY-Math.round(m.r*.35),8,2);                  // 横線
+        }else{
+            const prog=m.life/m.maxLife;
+            ctx.globalAlpha=Math.max(0,1-prog)*.9;
+            ctx.fillStyle='#ff4400';
+            ctx.beginPath();ctx.arc(dx,GY-2,m.r*(1+prog*2.5),0,Math.PI*2);ctx.fill();
+            ctx.fillStyle='#ffcc00';
+            ctx.beginPath();ctx.arc(dx,GY-2,m.r*.7*(1+prog),0,Math.PI*2);ctx.fill();
+            ctx.globalAlpha=1;
+        }
+    });
+
+    // 右端スポーン警告インジケーター
+    pending.forEach(p=>{
+        const blink=Math.floor(t/(p.delay<20?3:7))%2===0;
+        if(!blink)return;
+        const wy=p.sy+p.h/2;
+        const col=p.type==='exp'?'#ff4400':p.type==='mg'?'#ff8800':'#cc00cc';
+        ctx.fillStyle=col;
+        ctx.fillRect(W-9,p.sy-1,9,p.h+2);       // 右端縦バー
+        ctx.beginPath();                           // 左向き三角矢印
+        ctx.moveTo(W-12,wy);
+        ctx.lineTo(W-9,wy-5);
+        ctx.lineTo(W-9,wy+5);
+        ctx.closePath();ctx.fill();
+    });
+
     inj.forEach(s=>{const dx=s.sx-scroll;if(!s.res&&dx>-20&&dx<W+20)drawInjured(dx,s.sy);});
 
     // パーティクル
@@ -625,6 +709,20 @@ function draw(){
     ctx.restore();
 
     if(flash>0){ctx.globalAlpha=(flash/15)*.5;ctx.fillStyle='#ff0000';ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;flash--;}
+
+    // 瀕死アドレナリンヴィネット（HP=1時、縁が赤く脈打つ）
+    if(P.hp===1&&gs==='playing'){
+        const pulse=.22+Math.sin(t*.13)*.18;
+        const vw=20;
+        ctx.globalAlpha=pulse;
+        ctx.fillStyle='#ff0000';
+        ctx.fillRect(0,0,vw,H);           // 左
+        ctx.fillRect(W-vw,0,vw,H);        // 右
+        ctx.fillRect(vw,0,W-vw*2,vw);     // 上
+        ctx.fillRect(vw,H-vw,W-vw*2,vw); // 下
+        ctx.globalAlpha=1;
+    }
+
     drawUI();
     drawOver();
 }
