@@ -32,7 +32,8 @@ const GY=H-45;   // 地面Y(275)
 const PX=50;     // プレイヤー固定X
 
 const P={x:PX, y:GY-22, w:12, h:22, vy:0, onG:true, dj:false,
-         hp:5, mhp:5, boots:false, vest:false, grenade:false, inv:0, fr:0};
+         hp:5, mhp:5, boots:false, vest:false, grenade:false,
+         tourn:0, morph:0, inv:0, fr:0};
 const JMP=9, GR=0.38;
 const BTN_X=W-22, BTN_Y=H-22, BTN_R=18; // アクションボタン中心・半径
 const WARN_FRAMES=65; // 障害物スポーン警告フレーム数
@@ -46,10 +47,12 @@ let pending=[], mortars=[]; // 警告キュー・モルタル
 let shake=0, flash=0, rtxt=null, combo=0, ctmr=0, ctxt=null;
 let heliP=7300, heliR=false, dmg=0, gmsg='', safeZ=0;
 let smokePuffs=[]; // 煙幕パフ配列（ワールド座標）
-const GOALS=[2,3,5];
+let rushTimer=0, btnFlash=0, adrenPop=0; // 無敵ラン・ボタン点灯・ポップアップ
+let flyParts=[]; // グレネード補給演出（飛行パーティクル）
+const RUSH_DUR=240, GOALS=[2,3,5];
 
 function snd(f,d){
-    const af=P.hp===1?f*1.25:f; // 瀕死時ピッチ+25%
+    const af=(P.hp===1||rushTimer>0)?f*1.25:f; // 瀕死/ラッシュ時ピッチ+25%
     try{const ac=new(AudioContext||webkitAudioContext)(),o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=af;g.gain.setValueAtTime(.1,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}
 }
 function px(x,y,w,h){ctx.fillRect(Math.floor(x),Math.floor(y),w,h);}
@@ -115,9 +118,11 @@ function rst(){
     gs='playing'; scroll=0; t=0; score=0; rescued=0;
     obs=[]; inj=[]; items=[]; parts=[]; smokes=[];
     P.hp=5; P.boots=false; P.vest=false; P.grenade=false;
+    P.tourn=0; P.morph=0;
     P.y=GY-P.h; P.vy=0; P.onG=true; P.inv=0; P.fr=0;
     combo=0; ctmr=0; heliP=7300; heliR=false; shake=0; flash=0; dmg=0; gmsg='';
     safeZ=heliP-900; smokePuffs=[]; pending=[]; mortars=[];
+    rushTimer=0; btnFlash=0; adrenPop=0; flyParts=[];
 }
 function save(){totR+=rescued;if(score>best)best=score;localStorage.setItem('bf_total',totR);localStorage.setItem('bf_high',best);}
 
@@ -151,11 +156,17 @@ function update(){
         }
         const df2=1+(scroll/heliP)*.8;
         const ii=Math.max(50,Math.floor((160-stage*15)/df2));
-        if(t%ii===0) inj.push({sx:gx,sy:GY-10,w:12,h:10,res:false});
+        if(t%ii===0){
+            const ir=Math.random();
+            const injType=ir<.68?'normal':ir<.84?'bleed':'shock';
+            inj.push({sx:gx,sy:GY-10,w:12,h:10,res:false,type:injType});
+        }
         if(t%280===0&&Math.random()<.5)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'boots'});
         if(t%320===0&&Math.random()<.4)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'vest'});
         if(t%380===0&&Math.random()<.35) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
         if(t%350===0&&Math.random()<.3&&P.hp<P.mhp) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'});
+        if(t%360===0&&Math.random()<.38) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'tourn'});
+        if(t%400===0&&Math.random()<.32) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'morph'});
     }
 
     // pendingキュー処理：カウントダウン→obsへ移動
@@ -171,8 +182,8 @@ function update(){
         if(m.state==='warn'&&m.life>=m.maxLife){
             m.state='boom'; m.life=0; m.maxLife=22;
             spark(m.sx-scroll,GY-6,'#ff8800',18); snd(75,.35);
-            // 爆発ダメージ（1フレーム目のみ、P.inv/inSmoke考慮）
-            if(P.inv<=0&&!inSmoke()){
+            // 爆発ダメージ（1フレーム目のみ、P.inv/inSmoke/rush考慮）
+            if(P.inv<=0&&!inSmoke()&&rushTimer<=0){
                 const edx=(P.x+P.w/2)-(m.sx-scroll);
                 if(Math.abs(edx)<22&&P.y+P.h>GY-14){
                     if(P.vest){P.vest=false;P.inv=20;shake=3;spark(m.sx-scroll,GY-8,'#4488ff',12);snd(200,.2);}
@@ -192,7 +203,7 @@ function update(){
     });
 
     // 当たり判定（ヒットフラグ方式で安全に処理）
-    const hidden=inSmoke(); // 煙幕中は全攻撃を無効化
+    const hidden=inSmoke()||rushTimer>0; // 煙幕中/無敵ラン中は全攻撃を無効化
     obs.forEach(o=>{
         if(o.hit||P.inv>0)return;
         if(hidden){o.hit=true;return;}
@@ -218,20 +229,57 @@ function update(){
             else if(it.type==='vest'){P.vest=true; spark(dx+it.w/2,it.sy,'#4488ff',10); snd(550,.15);}
             else if(it.type==='grenade'){P.grenade=true; spark(dx+it.w/2,it.sy,'#aaffaa',10); snd(440,.15);}
             else if(it.type==='heart'){P.hp=Math.min(P.mhp,P.hp+1); spark(dx+it.w/2,it.sy,'#ff4488',12); snd(740,.2);}
+            else if(it.type==='tourn'){P.tourn++; spark(dx+it.w/2,it.sy,'#ff4444',10); snd(600,.12);}
+            else if(it.type==='morph'){P.morph++; spark(dx+it.w/2,it.sy,'#cc44ff',10); snd(500,.12);}
         }
     });
     inj.forEach(s=>{
         if(s.res)return;
         const dx=s.sx-scroll;
-        if(P.x<dx+s.w&&P.x+P.w>dx&&P.y<s.sy+s.h&&P.y+P.h>s.sy){
-            s.res=true; rescued++; combo++; ctmr=120;
-            const mul=Math.min(5,Math.floor(combo/2)+1);
-            const adren=P.hp===1?2:1; // 瀕死アドレナリン×2
-            score+=100*mul*adren; shake=3;
-            rtxt={x:dx+s.w/2,y:s.sy,t:25,mul};
-            if(combo>1)ctxt={x:W/2,y:30,t:40,n:combo};
-            spark(dx+s.w/2,s.sy+s.h/2,'#00ff88',10); snd(780,.3);
+        if(!(P.x<dx+s.w&&P.x+P.w>dx&&P.y<s.sy+s.h&&P.y+P.h>s.sy))return;
+        // トリアージ：アイテム不足なら救助不可
+        const stype=s.type||'normal';
+        if(stype==='bleed'&&P.tourn<=0)return;
+        if(stype==='shock'&&P.morph<=0)return;
+
+        s.res=true; rescued++; combo++; ctmr=120;
+        const mul=Math.min(5,Math.floor(combo/2)+1);
+        const adren=P.hp===1?2:1;
+        score+=100*mul*adren; shake=3;
+        rtxt={x:dx+s.w/2,y:s.sy,t:25,mul};
+        if(combo>1)ctxt={x:W/2,y:30,t:40,n:combo};
+        spark(dx+s.w/2,s.sy+s.h/2,'#00ff88',10); snd(780,.3);
+
+        if(stype==='bleed'){
+            P.tourn--;
+            // グレネード自動補給 + 飛行演出
+            P.grenade=true;
+            for(let i=0;i<6;i++){
+                flyParts.push({x:dx+s.w/2+((Math.random()-.5)*6),
+                               y:s.sy+((Math.random()-.5)*6),
+                               life:0, maxLife:30+i*4});
+            }
+            btnFlash=35; snd(660,.2);
+        }else if(stype==='shock'){
+            P.morph--;
+            // 無敵ラン発動
+            rushTimer=RUSH_DUR; adrenPop=90; snd(880,.5);
         }
+    });
+
+    // 無敵ラン更新
+    if(rushTimer>0){
+        rushTimer--;
+        scroll+=spd*.5; // 速度1.5倍（通常scroll+spd + 追加0.5spd）
+        if(t%3===0)spark(P.x+P.w/2+(Math.random()-.5)*10,P.y+P.h*.5,'#ffff00',2);
+    }
+    if(btnFlash>0)btnFlash--;
+    if(adrenPop>0)adrenPop--;
+    // 飛行パーティクル更新（rescue点→BTN_X,BTN_Y）
+    flyParts=flyParts.filter(fp=>{
+        fp.x+=(BTN_X-fp.x)*.2;
+        fp.y+=(BTN_Y-fp.y)*.2;
+        return ++fp.life<fp.maxLife;
     });
 
     parts=parts.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.15;p.l--;return p.l>0;});
@@ -348,16 +396,42 @@ function drawMedic(x,y){
     if(P.boots){ctx.fillStyle='#ffff00'; px(x,y+P.h-2,P.w,2);}
 }
 
-function drawInjured(x,y){
+function drawInjured(x,y,type){
+    const stype=type||'normal';
     // 横たわった兵士（オレンジ四角）
-    ctx.fillStyle='#c86020'; px(x,y+4,12,6);
+    const bodyCol=stype==='shock'?'#8840b0':stype==='bleed'?'#c82020':'#c86020';
+    ctx.fillStyle=bodyCol; px(x,y+4,12,6);
     // 頭（丸）
     ctx.fillStyle='#c8a060';
     ctx.beginPath(); ctx.arc(x-3,y+3,4,0,Math.PI*2); ctx.fill();
-    // 赤十字フラッシュ
-    if(Math.floor(t/12)%2===0){
-        ctx.fillStyle='#ff4444';
-        px(x+4,y-1,2,5); px(x+2,y+1,6,2);
+
+    if(stype==='bleed'){
+        // 出血：赤点滅 + BLD!ラベル
+        if(Math.floor(t/6)%2===0){
+            ctx.fillStyle='#ff0000'; ctx.globalAlpha=.7;
+            px(x+2,y+4,8,5);
+            ctx.globalAlpha=1;
+        }
+        if(Math.floor(t/12)%2===0){
+            ctx.fillStyle='#ff2222'; ctx.font='bold 5px monospace'; ctx.textAlign='center';
+            ctx.fillText('BLD!',x+6,y-1);
+        }
+    }else if(stype==='shock'){
+        // ショック：紫オーラ + PAIN!ラベル
+        const jit=(Math.random()-.5)*2;
+        ctx.fillStyle='#cc44ff'; ctx.globalAlpha=.35+Math.sin(t*.3)*.15;
+        px(x+jit-1,y+2,14,9);
+        ctx.globalAlpha=1;
+        if(Math.floor(t/12)%2===0){
+            ctx.fillStyle='#cc44ff'; ctx.font='bold 5px monospace'; ctx.textAlign='center';
+            ctx.fillText('PAIN',x+6,y-1);
+        }
+    }else{
+        // 通常：赤十字フラッシュ
+        if(Math.floor(t/12)%2===0){
+            ctx.fillStyle='#ff4444';
+            px(x+4,y-1,2,5); px(x+2,y+1,6,2);
+        }
     }
 }
 
@@ -485,18 +559,47 @@ function drawUI(){
     ctx.fillText(score+'pt',W-2,10);
 
     // 所持アイテムバッジ（左側縦並び）
-    let badgeY=17;
+    let badgeY=24;
     if(P.boots){ctx.fillStyle='#ffff00';px(1,badgeY,7,4);badgeY+=6;}
     if(P.vest){ctx.fillStyle='#4488ff';px(1,badgeY,7,4);ctx.fillStyle='#aaccff';px(2,badgeY,5,2);badgeY+=6;}
 
+    // 止血帯・モルヒネ残数表示
+    for(let i=0;i<P.tourn;i++){
+        ctx.fillStyle='#cc0000'; px(1+i*9,badgeY,7,6);
+        ctx.fillStyle='#fff'; px(3+i*9,badgeY+1,3,1); px(4+i*9,badgeY,1,3);
+    }
+    if(P.tourn>0)badgeY+=8;
+    for(let i=0;i<P.morph;i++){
+        ctx.fillStyle='#7722aa'; px(1+i*9,badgeY,5,7);
+        ctx.fillStyle='#cc88ff'; px(2+i*9,badgeY+1,3,3);
+    }
+    if(P.morph>0)badgeY+=9;
+
+    // 無敵ラッシュ残りバー
+    if(rushTimer>0){
+        const rp=rushTimer/RUSH_DUR;
+        ctx.fillStyle='#333';px(1,badgeY,50,4);
+        ctx.fillStyle=`hsl(${40+rp*20},100%,55%)`;px(1,badgeY,Math.floor(50*rp),4);
+        ctx.fillStyle='#ffdd00';ctx.font='bold 5px monospace';ctx.textAlign='left';
+        ctx.fillText('RUSH',2,badgeY+9);
+    }
+
     // アクションボタン（右下）
     ctx.globalAlpha=.5;
+    // btnFlash：補給演出で一瞬白く大きく点灯
+    const bfR=btnFlash>0?BTN_R+btnFlash*.3:BTN_R;
+    if(btnFlash>0){
+        ctx.globalAlpha=btnFlash/35*.8;
+        ctx.fillStyle='#ffffff';
+        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,bfR+4,0,Math.PI*2);ctx.fill();
+        ctx.globalAlpha=.5;
+    }
     if(P.grenade){
         // 所持中：緑に点灯
         ctx.fillStyle='#225522';
-        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,BTN_R,0,Math.PI*2);ctx.fill();
-        ctx.strokeStyle='#44ff44';ctx.lineWidth=2;
-        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,BTN_R,0,Math.PI*2);ctx.stroke();
+        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,bfR,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle=btnFlash>0?'#ffffff':'#44ff44';ctx.lineWidth=2;
+        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,bfR,0,Math.PI*2);ctx.stroke();
         ctx.globalAlpha=.9;
         // 発煙筒アイコン（緑円筒）
         ctx.fillStyle='#228822';px(BTN_X-4,BTN_Y-5,8,10);
@@ -633,6 +736,18 @@ function draw(){
             // ハート：ピンク
             drawHeart(dx+4,it.sy+4,4.5,'#ff4488');
             if(blink){ctx.fillStyle='#ffaacc';px(dx+3,it.sy-2,2,2);}
+        }else if(it.type==='tourn'){
+            // 止血帯：赤い包帯十字
+            ctx.fillStyle='#cc0000';px(dx,it.sy+3,9,3);
+            ctx.fillStyle='#ff4444';px(dx+3,it.sy,3,9);
+            ctx.fillStyle='#ffffff';px(dx+1,it.sy+4,7,1);px(dx+4,it.sy+1,1,7);
+            if(blink){ctx.fillStyle='#ff8888';px(dx+3,it.sy-2,2,2);}
+        }else if(it.type==='morph'){
+            // モルヒネ注射器：紫シリンジ
+            ctx.fillStyle='#7722aa';px(dx+2,it.sy+1,5,8);
+            ctx.fillStyle='#cc88ff';px(dx+3,it.sy+2,3,4);
+            ctx.fillStyle='#aaaaaa';px(dx+4,it.sy,1,2);px(dx+1,it.sy+8,6,2);
+            if(blink){ctx.fillStyle='#cc88ff';px(dx+3,it.sy-2,2,2);}
         }
     });
 
@@ -683,7 +798,7 @@ function draw(){
         ctx.closePath();ctx.fill();
     });
 
-    inj.forEach(s=>{const dx=s.sx-scroll;if(!s.res&&dx>-20&&dx<W+20)drawInjured(dx,s.sy);});
+    inj.forEach(s=>{const dx=s.sx-scroll;if(!s.res&&dx>-20&&dx<W+20)drawInjured(dx,s.sy,s.type);});
 
     // パーティクル
     parts.forEach(p=>{ctx.globalAlpha=p.l/p.ml;ctx.fillStyle=p.c;px(p.x-1,p.y-1,2,2);});
@@ -704,9 +819,42 @@ function draw(){
     });
     ctx.globalAlpha=1;
 
+    // 無敵ラッシュ：プレイヤー周囲に黄オーラ
+    if(rushTimer>0){
+        const ri=rushTimer/RUSH_DUR;
+        ctx.globalAlpha=.28*ri+Math.sin(t*.25)*.1;
+        ctx.fillStyle='#ffdd00';
+        ctx.beginPath();ctx.arc(P.x+P.w/2,P.y+P.h/2,18,0,Math.PI*2);ctx.fill();
+        ctx.globalAlpha=.15*ri;
+        ctx.fillStyle='#ffffff';
+        ctx.beginPath();ctx.arc(P.x+P.w/2,P.y+P.h/2,24,0,Math.PI*2);ctx.fill();
+        ctx.globalAlpha=1;
+    }
+
     if(P.inv%8<4||P.inv===0)drawMedic(P.x,P.y);
 
+    // グレネード補給飛行パーティクル
+    flyParts.forEach(fp=>{
+        const a=Math.max(0,1-fp.life/fp.maxLife);
+        ctx.globalAlpha=a; ctx.fillStyle='#44ff44';
+        ctx.beginPath();ctx.arc(fp.x,fp.y,2.5,0,Math.PI*2);ctx.fill();
+    });
+    ctx.globalAlpha=1;
+
     ctx.restore();
+
+    // ADRENALINE RUSH!ポップアップ（save/restoreの外）
+    if(adrenPop>0&&gs==='playing'){
+        const fade=Math.min(1,adrenPop/20)*Math.min(1,adrenPop/90*4);
+        ctx.globalAlpha=fade;
+        ctx.fillStyle='#000'; ctx.fillRect(W/2-54,H/2-22,108,38);
+        ctx.strokeStyle='#ffdd00'; ctx.lineWidth=2; ctx.strokeRect(W/2-54,H/2-22,108,38);
+        ctx.fillStyle='#ffff00'; ctx.font='bold 9px monospace'; ctx.textAlign='center';
+        ctx.fillText('ADRENALINE',W/2,H/2-6);
+        ctx.fillStyle='#ff8800'; ctx.font='bold 7px monospace';
+        ctx.fillText('RUSH!',W/2,H/2+10);
+        ctx.globalAlpha=1;
+    }
 
     if(flash>0){ctx.globalAlpha=(flash/15)*.5;ctx.fillStyle='#ff0000';ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;flash--;}
 
