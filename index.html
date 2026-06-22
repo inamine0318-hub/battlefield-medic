@@ -385,32 +385,39 @@ function drawBg(){
 // ===== スプライト（シンプル図形） =====
 function drawMedic(x,y){
     const cx=Math.floor(x)+6;
-    // ヘルメット（白・上半円）
-    ctx.fillStyle='#d8d8d8';
-    ctx.beginPath();ctx.arc(cx,y+5,4.5,Math.PI,0,true);ctx.closePath();ctx.fill();
-    // 顔（肌色・下半円）
+    // 1. 頭ベース（肌色四角）
     ctx.fillStyle='#c8a060';
-    ctx.beginPath();ctx.arc(cx,y+5,3.5,0,Math.PI,false);ctx.closePath();ctx.fill();
-    // 赤十字（ヘルメット正面）
+    px(cx-3,y+4,6,6);
+    // 2. 白いヘルメット（頭の上50%を深くかぶせる）
+    ctx.fillStyle='#e0e0e0';
+    px(cx-4,y+0,8,7);           // ドーム本体
+    ctx.fillStyle='#c8c8c8';
+    px(cx-5,y+6,10,1);          // ヘルメット下縁（やや広め・影色）
+    // 3. 赤十字（ヘルメット中央）
     ctx.fillStyle='#ee1111';
-    px(cx-1,y+1,2,4); px(cx-2,y+2,5,2);
-    // 肩・胴体（軍服オリーブ）
+    px(cx-1,y+1,2,5);           // 縦棒
+    px(cx-3,y+3,6,2);           // 横棒
+    // 4. 目（黒点・右向き・ヘルメット下の顔に描く）
+    ctx.fillStyle='#111111';
+    px(cx+1,y+8,1,2);
+    // 5. 肩・胴体（軍服オリーブ）
     ctx.fillStyle='#4a6a28';
-    px(x+1,y+9,10,2); px(x+2,y+11,8,6);
+    px(x+1,y+10,10,2);
+    px(x+2,y+12,8,6);
     // 医療バッグ（右腰・茶色）
     ctx.fillStyle='#6a4010';
-    px(x+10,y+11,3,5);
+    px(x+10,y+12,3,5);
     ctx.fillStyle='#ff4444';
-    px(x+11,y+12,1,3); px(x+10,y+13,3,1);
+    px(x+11,y+13,1,3); px(x+10,y+14,3,1);
     // 脚（走行アニメーション / ジャンプ）
     ctx.strokeStyle='#2a2010';ctx.lineWidth=2;ctx.lineCap='square';
     if(P.onG){
         const a=Math.sin(P.fr*0.3);
-        ctx.beginPath();ctx.moveTo(cx-2,y+17);ctx.lineTo(cx-2+a*4,y+22);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(cx+2,y+17);ctx.lineTo(cx+2-a*4,y+22);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(cx-2,y+18);ctx.lineTo(cx-2+a*4,y+22);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(cx+2,y+18);ctx.lineTo(cx+2-a*4,y+22);ctx.stroke();
     }else{
-        ctx.beginPath();ctx.moveTo(cx-2,y+17);ctx.lineTo(cx-5,y+21);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(cx+2,y+17);ctx.lineTo(cx,y+21);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(cx-2,y+18);ctx.lineTo(cx-5,y+21);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(cx+2,y+18);ctx.lineTo(cx,y+21);ctx.stroke();
     }
     if(P.boots){ctx.fillStyle='#ffff00';px(x,y+P.h-2,P.w,2);}
 }
