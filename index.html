@@ -32,8 +32,10 @@ const GY=H-45;   // 地面Y(275)
 const PX=50;     // プレイヤー固定X
 
 const P={x:PX, y:GY-22, w:12, h:22, vy:0, onG:true, dj:false,
-         hp:5, mhp:5, boots:false, inv:0, fr:0};
+         hp:5, mhp:5, boots:false, vest:false, grenade:false, inv:0, fr:0};
 const JMP=9, GR=0.38;
+const SMOKE_DUR=180;   // 発煙持続フレーム(3秒)
+const BTN_X=W-22, BTN_Y=H-22, BTN_R=18; // アクションボタン中心・半径
 
 let gs='start', stage=1, scroll=0, spd=1.2, t=0;
 let score=0, rescued=0;
@@ -42,13 +44,30 @@ let best=parseInt(localStorage.getItem('bf_high'))||0;
 let obs=[], inj=[], items=[], parts=[], smokes=[];
 let shake=0, flash=0, rtxt=null, combo=0, ctmr=0, ctxt=null;
 let heliP=7300, heliR=false, dmg=0, gmsg='', safeZ=0;
+let smokeCloud=0; // 残り発煙フレーム数
 const GOALS=[2,3,5];
 
 function snd(f,d){try{const ac=new(AudioContext||webkitAudioContext)(),o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=f;g.gain.setValueAtTime(.1,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}}
 function px(x,y,w,h){ctx.fillRect(Math.floor(x),Math.floor(y),w,h);}
 function spark(x,y,c,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*3,vy:(Math.random()-.5)*3-1,c,l:20,ml:20});}
 
-function inp(){
+function activateSmoke(){
+    if(gs!=='playing'||!P.grenade)return;
+    P.grenade=false; smokeCloud=SMOKE_DUR;
+    spark(P.x+P.w/2,P.y+P.h/2,'#cccccc',16); snd(300,.4);
+}
+
+function hitBtn(cx,cy){
+    return Math.hypot(cx-BTN_X,cy-BTN_Y)<BTN_R;
+}
+
+function canvasCoords(clientX,clientY){
+    const r=cv.getBoundingClientRect();
+    return [(clientX-r.left)*(W/r.width),(clientY-r.top)*(H/r.height)];
+}
+
+function inp(cx,cy){
+    if(cx!==undefined&&hitBtn(cx,cy)){activateSmoke();return;}
     if(gs==='start'){stage=1;rst();return;}
     if(gs==='stageclear'){if(stage<3){stage++;rst();}else{save();location.reload();}return;}
     if(gs==='gameover'){location.reload();return;}
@@ -57,16 +76,24 @@ function inp(){
         else if(P.boots&&!P.dj){P.vy=-JMP*.85;P.dj=true;snd(520,.1);}
     }
 }
-cv.addEventListener('click',inp);
-cv.addEventListener('touchstart',e=>{e.preventDefault();inp();},{passive:false});
-document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();inp();}});
+cv.addEventListener('click',e=>{const[cx,cy]=canvasCoords(e.clientX,e.clientY);inp(cx,cy);});
+cv.addEventListener('touchstart',e=>{
+    e.preventDefault();
+    const[cx,cy]=canvasCoords(e.touches[0].clientX,e.touches[0].clientY);
+    inp(cx,cy);
+},{passive:false});
+document.addEventListener('keydown',e=>{
+    if(e.code==='Space'){e.preventDefault();inp();}
+    if(e.code==='KeyF'){activateSmoke();}
+});
 
 function rst(){
     gs='playing'; scroll=0; t=0; score=0; rescued=0;
     obs=[]; inj=[]; items=[]; parts=[]; smokes=[];
-    P.hp=5; P.boots=false; P.y=GY-P.h; P.vy=0; P.onG=true; P.inv=0; P.fr=0;
+    P.hp=5; P.boots=false; P.vest=false; P.grenade=false;
+    P.y=GY-P.h; P.vy=0; P.onG=true; P.inv=0; P.fr=0;
     combo=0; ctmr=0; heliP=7300; heliR=false; shake=0; flash=0; dmg=0; gmsg='';
-    safeZ=heliP-900;
+    safeZ=heliP-900; smokeCloud=0;
 }
 function save(){totR+=rescued;if(score>best)best=score;localStorage.setItem('bf_total',totR);localStorage.setItem('bf_high',best);}
 
@@ -94,23 +121,39 @@ function update(){
         }
         const ii=Math.max(50,Math.floor((160-stage*15)/df));
         if(t%ii===0) inj.push({sx:gx,sy:GY-10,w:12,h:10,res:false});
-        if(t%280===0&&Math.random()<.5) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false});
+        if(t%280===0&&Math.random()<.5)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'boots'});
+        if(t%320===0&&Math.random()<.4)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'vest'});
+        if(t%380===0&&Math.random()<.35) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
     }
+
+    if(smokeCloud>0)smokeCloud--;
 
     // 当たり判定（ヒットフラグ方式で安全に処理）
     obs.forEach(o=>{
         if(o.hit||P.inv>0)return;
+        // 発煙中は機銃を無効化
+        if(smokeCloud>0&&o.t==='mg'){o.hit=true;return;}
         const dx=o.sx-scroll;
         if(P.x<dx+o.w&&P.x+P.w>dx&&P.y<o.sy+o.h&&P.y+P.h>o.sy){
-            o.hit=true; P.hp--; P.boots=false; P.inv=30; P.vy=-6; dmg++;
-            shake=5; flash=15; spark(dx+o.w/2,o.sy+o.h/2,'#ff8800',12); snd(90,.25);
+            o.hit=true;
+            if(P.vest){
+                // ベストが1回だけダメージを肩代わり
+                P.vest=false; P.inv=20; shake=3;
+                spark(dx+o.w/2,o.sy+o.h/2,'#4488ff',14); snd(200,.2);
+            }else{
+                P.hp--; P.boots=false; P.inv=30; P.vy=-6; dmg++;
+                shake=5; flash=15; spark(dx+o.w/2,o.sy+o.h/2,'#ff8800',12); snd(90,.25);
+            }
         }
     });
     items.forEach(it=>{
         if(it.got)return;
         const dx=it.sx-scroll;
         if(P.x<dx+it.w&&P.x+P.w>dx&&P.y<it.sy+it.h&&P.y+P.h>it.sy){
-            it.got=true; P.boots=true; spark(dx+it.w/2,it.sy,'#ffff00',8); snd(660,.12);
+            it.got=true;
+            if(it.type==='boots'){P.boots=true; spark(dx+it.w/2,it.sy,'#ffff00',8); snd(660,.12);}
+            else if(it.type==='vest'){P.vest=true; spark(dx+it.w/2,it.sy,'#4488ff',10); snd(550,.15);}
+            else if(it.type==='grenade'){P.grenade=true; spark(dx+it.w/2,it.sy,'#aaffaa',10); snd(440,.15);}
         }
     });
     inj.forEach(s=>{
@@ -361,8 +404,44 @@ function drawUI(){
     ctx.fillStyle='#ffff00';ctx.font='bold 6px monospace';ctx.textAlign='right';
     ctx.fillText(score+'pt',W-2,10);
 
-    // ブーツ：黄色バッジ
-    if(P.boots){ctx.fillStyle='#ffff00'; px(W-10,14,8,4);}
+    // 所持アイテムバッジ（左側縦並び）
+    let badgeY=17;
+    if(P.boots){ctx.fillStyle='#ffff00';px(1,badgeY,7,4);badgeY+=6;}
+    if(P.vest){ctx.fillStyle='#4488ff';px(1,badgeY,7,4);ctx.fillStyle='#aaccff';px(2,badgeY,5,2);badgeY+=6;}
+
+    // アクションボタン（右下）
+    ctx.globalAlpha=.5;
+    if(P.grenade){
+        // 所持中：緑に点灯
+        ctx.fillStyle='#225522';
+        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,BTN_R,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='#44ff44';ctx.lineWidth=2;
+        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,BTN_R,0,Math.PI*2);ctx.stroke();
+        ctx.globalAlpha=.9;
+        // 発煙筒アイコン（緑円筒）
+        ctx.fillStyle='#228822';px(BTN_X-4,BTN_Y-5,8,10);
+        ctx.fillStyle='#44cc44';px(BTN_X-3,BTN_Y-6,6,4);
+        ctx.fillStyle='#aaa';px(BTN_X-1,BTN_Y-8,2,3);
+    }else if(smokeCloud>0){
+        // 発動中：白くパルス
+        const p=.6+Math.sin(t*.3)*.4;
+        ctx.fillStyle='rgba(180,220,180,'+p+')';
+        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,BTN_R,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='#aaffaa';ctx.lineWidth=2;
+        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,BTN_R,0,Math.PI*2);ctx.stroke();
+        // 残りタイマーバー
+        ctx.globalAlpha=.8;
+        const ang=-Math.PI/2+Math.PI*2*(1-smokeCloud/SMOKE_DUR);
+        ctx.strokeStyle='#ffffff';ctx.lineWidth=3;
+        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,BTN_R-2,-Math.PI/2,ang);ctx.stroke();
+    }else{
+        // 未所持：グレーアウト
+        ctx.fillStyle='#111';
+        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,BTN_R,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='#333';ctx.lineWidth=2;
+        ctx.beginPath();ctx.arc(BTN_X,BTN_Y,BTN_R,0,Math.PI*2);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
 
     // 接近アラート（図形）
     if(gmsg){
@@ -449,13 +528,28 @@ function draw(){
     ctx.fillStyle='#0a0a1a';ctx.fillRect(0,0,W,H);
     drawBg();
 
-    // ブーツアイテム
+    // アイテム描画（type別）
     items.forEach(it=>{
         if(it.got)return;
         const dx=it.sx-scroll;if(dx<-10||dx>W+10)return;
-        ctx.fillStyle='#ffdd00';px(dx+1,it.sy+2,7,5);
-        ctx.fillStyle='#ff8800';px(dx,it.sy+6,9,3);
-        if(Math.floor(t/8)%2===0){ctx.fillStyle='#fff';px(dx+3,it.sy-2,2,2);}
+        const blink=Math.floor(t/8)%2===0;
+        if(it.type==='boots'){
+            ctx.fillStyle='#ffdd00';px(dx+1,it.sy+2,7,5);
+            ctx.fillStyle='#ff8800';px(dx,it.sy+6,9,3);
+            if(blink){ctx.fillStyle='#fff';px(dx+3,it.sy-2,2,2);}
+        }else if(it.type==='vest'){
+            // 防弾ベスト：青い盾型
+            ctx.fillStyle='#2266cc';px(dx,it.sy,8,8);
+            ctx.fillStyle='#88aaff';px(dx+1,it.sy+1,6,3);
+            ctx.fillStyle='#ffffff';px(dx+3,it.sy+2,2,4);px(dx+2,it.sy+4,4,2);
+            if(blink){ctx.fillStyle='#aaccff';px(dx+3,it.sy-2,2,2);}
+        }else if(it.type==='grenade'){
+            // 発煙筒：緑円筒
+            ctx.fillStyle='#228822';px(dx+1,it.sy+2,6,7);
+            ctx.fillStyle='#44cc44';px(dx+2,it.sy+1,4,3);
+            ctx.fillStyle='#888';px(dx+3,it.sy,2,2);
+            if(blink){ctx.fillStyle='#aaffaa';px(dx+3,it.sy-2,2,2);}
+        }
     });
 
     drawObs();
@@ -467,6 +561,19 @@ function draw(){
 
     drawHeli();
     if(P.inv%8<4||P.inv===0)drawMedic(P.x,P.y);
+
+    // 発煙雲（プレイヤー中心・白い半透明円）
+    if(smokeCloud>0){
+        const fade=Math.min(1,smokeCloud/30);
+        const radius=22+Math.sin(t*.15)*3;
+        ctx.globalAlpha=.45*fade;
+        ctx.fillStyle='#dddddd';
+        ctx.beginPath();ctx.arc(P.x+P.w/2,P.y+P.h/2,radius,0,Math.PI*2);ctx.fill();
+        ctx.globalAlpha=.2*fade;
+        ctx.fillStyle='#ffffff';
+        ctx.beginPath();ctx.arc(P.x+P.w/2,P.y+P.h/2,radius*.65,0,Math.PI*2);ctx.fill();
+        ctx.globalAlpha=1;
+    }
 
     ctx.restore();
 
