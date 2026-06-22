@@ -143,6 +143,7 @@ function update(){
         if(t%280===0&&Math.random()<.5)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'boots'});
         if(t%320===0&&Math.random()<.4)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'vest'});
         if(t%380===0&&Math.random()<.35) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
+        if(t%350===0&&Math.random()<.3&&P.hp<P.mhp) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'});
     }
 
     // 煙幕パフ更新（成長・フェード）
@@ -179,6 +180,7 @@ function update(){
             if(it.type==='boots'){P.boots=true; spark(dx+it.w/2,it.sy,'#ffff00',8); snd(660,.12);}
             else if(it.type==='vest'){P.vest=true; spark(dx+it.w/2,it.sy,'#4488ff',10); snd(550,.15);}
             else if(it.type==='grenade'){P.grenade=true; spark(dx+it.w/2,it.sy,'#aaffaa',10); snd(440,.15);}
+            else if(it.type==='heart'){P.hp=Math.min(P.mhp,P.hp+1); spark(dx+it.w/2,it.sy,'#ff4488',12); snd(740,.2);}
         }
     });
     inj.forEach(s=>{
@@ -306,10 +308,6 @@ function drawMedic(x,y){
     px(x+P.w/2-1,y+1,2,6); px(x+P.w/2-3,y+3,6,2);
     // ブーツ（黄色ライン）
     if(P.boots){ctx.fillStyle='#ffff00'; px(x,y+P.h-2,P.w,2);}
-    // HPドット（頭の上）
-    for(let i=0;i<P.mhp;i++){
-        ctx.fillStyle=i<P.hp?'#ff2222':'#441111'; px(x+i*3-1,y-5,2,2);
-    }
 }
 
 function drawInjured(x,y){
@@ -396,21 +394,40 @@ function drawHeli(){
     }
 }
 
+// ハート描画ヘルパー（中心cx,cy、サイズs、色c）
+function drawHeart(cx,cy,s,c){
+    ctx.fillStyle=c;
+    // 上2つの丸
+    ctx.beginPath();ctx.arc(cx-s*.25,cy-s*.1,s*.3,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(cx+s*.25,cy-s*.1,s*.3,0,Math.PI*2);ctx.fill();
+    // 下の三角
+    ctx.beginPath();
+    ctx.moveTo(cx-s*.55,cy-s*.05);
+    ctx.lineTo(cx,cy+s*.55);
+    ctx.lineTo(cx+s*.55,cy-s*.05);
+    ctx.closePath();ctx.fill();
+}
+
 // ===== UI（テキスト最小化・図形中心） =====
 function drawUI(){
-    // HUDバー
-    ctx.fillStyle='rgba(0,0,0,.80)';ctx.fillRect(0,0,W,15);
+    // HUDバー（HP分の高さを確保）
+    ctx.fillStyle='rgba(0,0,0,.80)';ctx.fillRect(0,0,W,22);
 
-    // ステージ番号（ASCII数字のみ）
+    // ステージ番号
     ctx.fillStyle=stage===1?'#4488ff':stage===2?'#ff8800':'#ff4444';
     px(1,1,11,12);
     ctx.fillStyle='#fff';ctx.font='bold 9px monospace';ctx.textAlign='center';
     ctx.fillText(stage,7,11);
 
+    // HPハートアイコン（左上、ステージバッジ右隣）
+    for(let i=0;i<P.mhp;i++){
+        drawHeart(17+i*11,8,4.5,i<P.hp?'#ff2244':'#441122');
+    }
+
     // 救助数：人型アイコン（小四角）
     for(let i=0;i<GOALS[stage-1];i++){
         ctx.fillStyle=i<rescued?'#00ff88':'#224422';
-        px(15+i*8,2,6,11);
+        px(15+i*8,15,6,6);
     }
 
     // ヘリまでの距離バー（中央）
@@ -574,6 +591,10 @@ function draw(){
             ctx.fillStyle='#44cc44';px(dx+2,it.sy+1,4,3);
             ctx.fillStyle='#888';px(dx+3,it.sy,2,2);
             if(blink){ctx.fillStyle='#aaffaa';px(dx+3,it.sy-2,2,2);}
+        }else if(it.type==='heart'){
+            // ハート：ピンク
+            drawHeart(dx+4,it.sy+4,4.5,'#ff4488');
+            if(blink){ctx.fillStyle='#ffaacc';px(dx+3,it.sy-2,2,2);}
         }
     });
 
