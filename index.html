@@ -35,7 +35,7 @@ const P={x:PX, y:GY-22, w:12, h:22, vy:0, onG:true, dj:false,
          hp:5, mhp:5, boots:false, vest:false, grenade:false,
          tourn:0, morph:0, inv:0, fr:0};
 const JMP=9, GR=0.38;
-const BTN_X=W-22, BTN_Y=H-22, BTN_R=18; // アクションボタン中心・半径
+const BTN_X=W-24, BTN_Y=H-26, BTN_R=22; // アクションボタン（モバイル向け大型化）
 const WARN_FRAMES=65; // 障害物スポーン警告フレーム数
 
 let gs='start', stage=1, scroll=0, spd=1.2, t=0;
@@ -99,25 +99,29 @@ function inp(cx,cy){
         else if(P.boots&&!P.dj){P.vy=-JMP*.85;P.dj=true;snd(520,.1);}
     }
 }
-cv.addEventListener('click',e=>{
-    if(wingTimer>0)return; // ジェット中はclickを無視（touchstartで処理）
-    const[cx,cy]=canvasCoords(e.clientX,e.clientY);inp(cx,cy);
-});
+let jetTouchId=null; // ジェットパック担当の指を追跡
 cv.addEventListener('touchstart',e=>{
     e.preventDefault();
-    const[cx,cy]=canvasCoords(e.touches[0].clientX,e.touches[0].clientY);
-    if(cx!==undefined&&hitBtn(cx,cy)){activateSmoke();return;}
-    if(wingTimer>0&&gs==='playing'){jetting=true;return;} // ジェット推力ON
-    inp(cx,cy);
+    for(const t of e.changedTouches){
+        const[cx,cy]=canvasCoords(t.clientX,t.clientY);
+        if(hitBtn(cx,cy)){activateSmoke();continue;} // 煙ボタン（どの指でも可）
+        if(wingTimer>0&&gs==='playing'){jetting=true;jetTouchId=t.identifier;continue;}
+        inp(cx,cy); // ジャンプ
+    }
 },{passive:false});
-cv.addEventListener('touchend',e=>{jetting=false;},{passive:true});
+document.addEventListener('touchend',e=>{
+    for(const t of e.changedTouches){
+        if(t.identifier===jetTouchId){jetting=false;jetTouchId=null;}
+    }
+},{passive:true});
+document.addEventListener('touchcancel',()=>{jetting=false;jetTouchId=null;},{passive:true});
 document.addEventListener('keydown',e=>{
     if(e.code==='Space'){
         e.preventDefault();
-        if(wingTimer>0&&gs==='playing'){jetting=true;return;} // ジェット推力ON
+        if(wingTimer>0&&gs==='playing'){jetting=true;return;}
         inp();
     }
-    if(e.code==='KeyF'){activateSmoke();}
+    if(e.code==='KeyF')activateSmoke();
 });
 document.addEventListener('keyup',e=>{
     if(e.code==='Space')jetting=false;
@@ -150,6 +154,7 @@ function update(){
     }
     P.vy=Math.min(P.vy,11);
     P.y+=P.vy;
+    if(P.y<22){P.y=22;P.vy=Math.max(0,P.vy);} // 天井（HUD裏に入らない）
     if(P.y+P.h>=GY){P.y=GY-P.h;P.vy=0;P.onG=true;P.dj=false;}else P.onG=false;
     P.inv=Math.max(0,P.inv-1);
 
@@ -618,12 +623,17 @@ function drawHeart(cx,cy,s,c){
 function drawItemSlots(){
     const has=P.boots||P.vest||P.grenade||P.tourn>0||P.morph>0||rushTimer>0||wingTimer>0;
     if(!has)return;
-    // スロットバー背景
-    ctx.fillStyle='rgba(0,0,0,.82)'; ctx.fillRect(0,22,W,14);
-    ctx.strokeStyle='#333'; ctx.lineWidth=1; ctx.strokeRect(0,22,W,14);
-
+    // 左下固定（地面より下のデッドゾーン・右下ボタンと干渉しない）
     let sx=3;
-    const sy=24, sw=10, sh=10, sg=3;
+    const sy=H-16, sw=10, sh=10, sg=3;
+    // スロット数を先に数えてバー幅を決定
+    let cnt=0;
+    if(P.boots)cnt++;if(P.vest)cnt++;if(P.grenade)cnt++;
+    if(P.tourn>0)cnt+=(P.tourn>1?1.5:1);if(P.morph>0)cnt+=(P.morph>1?1.5:1);
+    if(rushTimer>0)cnt++;if(wingTimer>0)cnt++;
+    const barW=Math.ceil(cnt*(sw+sg))+2;
+    ctx.fillStyle='rgba(0,0,0,.80)'; ctx.fillRect(0,sy-2,barW,sh+4);
+    ctx.strokeStyle='#333'; ctx.lineWidth=1; ctx.strokeRect(0,sy-2,barW,sh+4);
 
     function slotBG(x){
         ctx.fillStyle='#111'; ctx.fillRect(x,sy-1,sw,sh+2);
