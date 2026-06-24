@@ -510,32 +510,127 @@ function drawMedic(x,y){
 
 function drawInjured(x,y,type){
     const stype=type||'normal';
-    const bodyCol=stype==='shock'?'#6a3090':stype==='bleed'?'#882010':'#4a6030';
-    // 頭（肌色丸・左端）
-    ctx.fillStyle='#c8a060';
-    ctx.beginPath();ctx.arc(x+2,y+5,3.5,0,Math.PI*2);ctx.fill();
-    // ズレたヘルメット（頭の上に少し斜め）
-    ctx.fillStyle='#e0e0e0';
-    px(x-1,y+0,5,3);
-    ctx.fillStyle='#ee1111';
-    px(x+1,y+0,1,3); px(x-1,y+1,5,1);
-    // 体（横長・地面に横たわる）
-    ctx.fillStyle=bodyCol;
-    px(x+4,y+2,10,6);
-    // 脚（右端から延ばす）
-    ctx.strokeStyle='#3a2818'; ctx.lineWidth=2; ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(x+13,y+4);ctx.lineTo(x+15,y+2);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(x+13,y+7);ctx.lineTo(x+15,y+8);ctx.stroke();
-    // 負傷演出
+    const blink=Math.floor(t/8)%2===0;
+    const cx=x+6;
+
+    // ===== 共通ヘルパー: 兵士用M1ヘルメット =====
+    function soldierHelmet(hx,hy,tilt){
+        // ブリム（少し広め）→M1ヘルメットらしさ
+        ctx.fillStyle='#2a4018'; px(hx-4+tilt,hy+2,9,1);
+        // ドーム本体
+        ctx.fillStyle='#3a5020'; px(hx-3+tilt,hy-1,7,4);
+        ctx.fillStyle='#2a3a18'; px(hx-3+tilt,hy-1,7,1); // 上端暗め
+        ctx.fillStyle='#4a6028'; px(hx-2+tilt,hy+0,5,1); // ハイライト帯
+    }
+
+    // ===== 共通ヘルパー: ライフル =====
+    function rifle(rx,ry,angle){
+        // angle=0:水平  angle=1:斜め
+        ctx.fillStyle='#1e1208';
+        if(angle){
+            // 斜め（diagonal）
+            px(rx,   ry+2, 2,2); px(rx+2, ry+1,2,2);
+            px(rx+4, ry,   2,2); px(rx+6, ry-1,2,2);
+            px(rx+8, ry-2, 2,2);
+            ctx.fillStyle='#333'; px(rx+9,ry-3,1,2); // マズル
+        }else{
+            // 水平
+            px(rx,ry,10,2);
+            ctx.fillStyle='#2e1e10'; px(rx+7,ry,3,3); // 銃床
+            ctx.fillStyle='#333';    px(rx,ry,1,2);    // マズル
+        }
+    }
+
     if(stype==='bleed'){
-        if(Math.floor(t/6)%2===0){ctx.fillStyle='#ff0000';ctx.globalAlpha=.7;px(x+4,y+3,9,4);ctx.globalAlpha=1;}
-        if(Math.floor(t/12)%2===0){ctx.fillStyle='#ff2222';ctx.font='bold 5px monospace';ctx.textAlign='center';ctx.fillText('BLD!',x+7,y-1);}
-    }else if(stype==='shock'){
-        const jit=(Math.random()-.5)*2;
-        ctx.fillStyle='#cc44ff';ctx.globalAlpha=.35+Math.sin(t*.3)*.15;px(x+jit,y+1,15,9);ctx.globalAlpha=1;
-        if(Math.floor(t/12)%2===0){ctx.fillStyle='#cc44ff';ctx.font='bold 5px monospace';ctx.textAlign='center';ctx.fillText('PAIN',x+7,y-1);}
+        // ===== タイプB: SOS 手を振る（出血） =====
+        const wa=Math.floor(t/7)%2;
+
+        // ライフル（地面に落とした・斜め）
+        rifle(cx-6,y+8,1);
+
+        // 血だまり
+        ctx.fillStyle='rgba(150,0,0,.55)'; px(cx-3,y+9,8,2);
+
+        // 脚（直立・少し開き）
+        ctx.fillStyle='#2a3818';
+        px(cx-3,y+6,3,4); px(cx+1,y+6,3,4);
+        ctx.fillStyle='#0d0d08';
+        px(cx-4,y+9,4,2); px(cx+1,y+9,4,2);
+
+        // 体（血で汚れた）
+        ctx.fillStyle='#882010'; px(cx-2,y+3,5,4);
+        ctx.fillStyle='#aa3020'; px(cx-1,y+3,3,2);
+
+        // 左腕（垂れ）
+        ctx.fillStyle='#882010'; px(cx-4,y+4,2,4);
+
+        // 右腕（振り上げ・アニメ）
+        ctx.fillStyle='#882010';
+        px(cx+2,y+2-wa,2,4);
+        px(cx+3,y-1-wa,2,3);
+        ctx.fillStyle='#c4906a'; px(cx+3,y-2-wa,2,2); // 手
+
+        // 頭
+        ctx.fillStyle='#c8a060'; px(cx-2,y+0,5,4);
+        ctx.fillStyle='#fff'; px(cx-1,y+1,1,2); px(cx+1,y+1,1,2); // 白目
+        ctx.fillStyle='#111'; px(cx-1,y+2,1,1); px(cx+1,y+2,1,1); // 瞳
+
+        // ヘルメット（傾き+1でずれた感）
+        soldierHelmet(cx,y-2,1);
+
+        if(blink) txo('HELP',cx,y-4,'#ff4444',5);
+
     }else{
-        if(Math.floor(t/12)%2===0){ctx.fillStyle='#44ff88';px(x+5,y-2,2,5);px(x+3,y,6,2);}
+        // ===== タイプA: 片膝立ち（normal / shock） =====
+        const isShock=stype==='shock';
+        const bodyCol=isShock?'#5a2888':'#4a6030';
+        const bodyHL =isShock?'#7a44aa':'#607848';
+
+        // ライフルの配置をタイプで変える
+        if(isShock){
+            // shock: ライフルを横に落とした（膝元）
+            rifle(cx-2,y+9,0);
+        }else{
+            // normal: ライフルを斜めに持ちかけてる（手元にある）
+            rifle(cx-4,y+7,1);
+        }
+
+        // 右脚（後ろ・伸ばしてる）
+        ctx.fillStyle='#2a3818';
+        px(cx+1,y+5,3,5);
+        ctx.fillStyle='#0d0d08'; px(cx+0,y+9,5,2);
+
+        // 左脚（前膝・地面に着く）
+        ctx.fillStyle='#2a3818';
+        px(cx-5,y+6,5,4);
+        ctx.fillStyle='#0d0d08'; px(cx-6,y+9,5,2);
+
+        // 両腕（力なく垂れる）
+        ctx.fillStyle=bodyCol;
+        px(cx-5,y+4,2,5);
+        px(cx+2,y+4,2,5);
+
+        // 体
+        ctx.fillStyle=bodyCol; px(cx-3,y+3,7,4);
+        ctx.fillStyle=bodyHL;  px(cx-2,y+3,5,2);
+
+        // 頭（うな垂れ）
+        ctx.fillStyle='#c8a060'; px(cx-2,y+0,5,4);
+        ctx.fillStyle='#5a3820';
+        px(cx-1,y+2,2,1); px(cx+1,y+2,2,1); // 閉じた目
+
+        // ヘルメット（真っ直ぐ・正常着用）
+        soldierHelmet(cx,y-2,0);
+
+        if(isShock){
+            const pulse=.22+Math.sin(t*.3)*.1;
+            ctx.globalAlpha=pulse;
+            ctx.fillStyle='#8833cc'; px(cx-5,y-2,11,13);
+            ctx.globalAlpha=1;
+            if(blink) txo('SHOCK',cx,y-4,'#cc44ff',5);
+        }else{
+            if(blink){ctx.fillStyle='#44ff88';px(cx,y-4,2,5);px(cx-1,y-3,4,2);}
+        }
     }
 }
 
