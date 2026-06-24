@@ -170,7 +170,7 @@ function update(){
         if(t%220===0&&Math.random()<.5&&P.hp<P.mhp) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'});
         if(t%230===0&&Math.random()<.55) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'tourn'});
         if(t%280===0&&Math.random()<.48) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'morph'});
-        if(t%500===0&&Math.random()<.3)  items.push({sx:gx,sy:GY-18,w:8,h:7,got:false,type:'wing'});
+        if(t%500===0&&Math.random()<.3)  items.push({sx:gx,sy:GY-18,w:8,h:7,got:false,type:'jetpack'});
     }
 
     // pendingキュー処理：カウントダウン→obsへ移動
@@ -235,7 +235,7 @@ function update(){
             else if(it.type==='heart'){P.hp=Math.min(P.mhp,P.hp+1); spark(dx+it.w/2,it.sy,'#ff4488',12); snd(740,.2);}
             else if(it.type==='tourn'){P.tourn++; spark(dx+it.w/2,it.sy,'#ff4444',10); snd(600,.12);}
             else if(it.type==='morph'){P.morph++; spark(dx+it.w/2,it.sy,'#cc44ff',10); snd(500,.12);}
-            else if(it.type==='wing'){wingTimer=WING_DUR; spark(dx+it.w/2,it.sy,'#ffcc00',16); snd(1100,.4);}
+            else if(it.type==='jetpack'){wingTimer=WING_DUR; spark(dx+it.w/2,it.sy,'#ff8800',16); snd(880,.4);}
         }
     });
     inj.forEach(s=>{
@@ -390,18 +390,32 @@ function drawBg(){
 // ===== スプライト（シンプル図形） =====
 function drawMedic(x,y){
     const cx=Math.floor(x)+6;
-    // 飛行中：翼エフェクト（体の両側）
+    // 背中：ジェットパック（飛行中）or 医療バッグ（通常）
     if(wingTimer>0){
-        const wf=Math.floor(t/6)%2, wc=wf?'#ffcc00':'#ffaa00';
-        ctx.fillStyle=wc;
-        px(x-5,y+9, 5,3); px(x-4,y+12,4,2); px(x-3,y+14,3,2); // 左翼
-        px(x+12,y+9,5,3); px(x+12,y+12,4,2); px(x+12,y+14,3,2); // 右翼
+        // ジェットパック本体
+        ctx.fillStyle='#445544';
+        px(x-2,y+9, 4,9);      // パックボディ
+        ctx.fillStyle='#223322';
+        px(x-1,y+10,2,6);      // パネル
+        ctx.fillStyle='#667766';
+        px(x-2,y+17,2,2);      // 左ノズル
+        px(x+0, y+17,2,2);     // 右ノズル
+        // 噴射炎（点滅アニメ）
+        const fl=Math.floor(t/4)%2;
+        ctx.fillStyle=fl?'#ff8800':'#ffcc00';
+        px(x-2,y+19,2,3);
+        px(x+0, y+19,2,3);
+        ctx.fillStyle='#ff440088';
+        if(fl){px(x-3,y+21,6,2);}
+        // 炎パーティクル（ランダム小さい点）
+        if(t%3===0){spark(x+1,y+22,'#ff8800',1);}
+    }else{
+        // 医療バッグ
+        ctx.fillStyle='#6a4010';
+        px(x-1,y+9,4,6);
+        ctx.fillStyle='#ff4444';
+        px(x,y+11,1,2); px(x-1,y+12,3,1);
     }
-    // 医療バッグ（左・背中側）
-    ctx.fillStyle='#6a4010';
-    px(x-1,y+9,4,6);
-    ctx.fillStyle='#ff4444';
-    px(x,y+11,1,2); px(x-1,y+12,3,1);
     // 体（オリーブ軍服）
     ctx.fillStyle='#4a6a28';
     px(x+2,y+9,8,11);
@@ -633,7 +647,7 @@ function drawUI(){
         ctx.fillStyle='#333';px(1,badgeY,50,4);
         ctx.fillStyle=`hsl(45,100%,${55+wp*15|0}%)`;px(1,badgeY,Math.floor(50*wp),4);
         ctx.fillStyle='#ffcc00';ctx.font='bold 5px monospace';ctx.textAlign='left';
-        ctx.fillText('FLY',2,badgeY+9);
+        ctx.fillText('JET',2,badgeY+9);
     }
 
     // アクションボタン（右下）
@@ -800,16 +814,21 @@ function draw(){
             ctx.fillStyle='#cc88ff';px(dx+3,it.sy+2,3,4);
             ctx.fillStyle='#aaaaaa';px(dx+4,it.sy,1,2);px(dx+1,it.sy+8,6,2);
             if(blink){ctx.fillStyle='#cc88ff';px(dx+3,it.sy-2,2,2);}
-        }else if(it.type==='wing'){
-            // 翼アイテム：金色の羽
-            ctx.fillStyle='#ffcc00';
-            px(dx,  it.sy+2,3,2); px(dx,  it.sy+4,4,3); // 左翼
-            px(dx+6,it.sy+2,3,2); px(dx+5,it.sy+4,4,3); // 右翼
-            ctx.fillStyle='#ff8800';
-            px(dx+3,it.sy+3,3,3); // 中心
-            ctx.fillStyle='#ffff88';
-            px(dx+3,it.sy+1,2,2); // 光
-            if(blink){ctx.fillStyle='#fff';px(dx+3,it.sy-2,2,2);}
+        }else if(it.type==='jetpack'){
+            // ジェットパック：軍用背負い式
+            ctx.fillStyle='#445544';
+            px(dx+1,it.sy,6,6);         // ボディ
+            ctx.fillStyle='#223322';
+            px(dx+2,it.sy+1,4,3);       // パネル
+            ctx.fillStyle='#667766';
+            px(dx+2,it.sy+4,2,2);       // 左ノズル
+            px(dx+5,it.sy+4,2,2);       // 右ノズル
+            // 噴射炎（点滅）
+            const flm=Math.floor(t/4)%2;
+            ctx.fillStyle=flm?'#ff8800':'#ff4400';
+            px(dx+2,it.sy+6,2,2);
+            px(dx+5,it.sy+6,2,2);
+            if(blink){ctx.fillStyle='#ffaa44';px(dx+3,it.sy-2,2,2);}
         }
     });
 
