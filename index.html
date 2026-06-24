@@ -393,9 +393,13 @@ function drawMedic(x,y){
     // 体（オリーブ軍服）
     ctx.fillStyle='#4a6a28';
     px(x+2,y+9,8,11);
-    // 右腕（前方へ）
-    ctx.fillStyle='#3a5a20';
-    px(x+9,y+10,2,6);
+    // 腕（オリーブ・前方斜め階段オフセット＋肌色の手）
+    ctx.fillStyle='#4a6a28';
+    px(x+9, y+10,3,3);
+    px(x+10,y+12,3,3);
+    px(x+11,y+14,3,3);
+    ctx.fillStyle='#c8a060';
+    px(x+11,y+16,3,3);
     // 頭（肌色・少し右寄り）
     ctx.fillStyle='#c8a060';
     px(cx-1,y+3,6,6);
@@ -408,14 +412,26 @@ function drawMedic(x,y){
     ctx.fillStyle='#ee1111';
     px(cx,y+1,2,4);
     px(cx-1,y+2,4,2);
-    // 目（右向き黒点・ヘルメット下の可視顔に）
+    // 目（右向き黒点）
     ctx.fillStyle='#111';
     px(cx+3,y+7,1,1);
-    // 脚（走行アニメーション）
-    ctx.strokeStyle='#2a2010'; ctx.lineWidth=2; ctx.lineCap='round';
+    // 脚（走行アニメーション：ドット絵風階段オフセット＋靴）
     const a=P.onG?Math.sin(P.fr*0.3):0;
-    ctx.beginPath();ctx.moveTo(cx-1,y+20);ctx.lineTo(cx-3+a*4,y+22);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(cx+2,y+20);ctx.lineTo(cx+4-a*4,y+22);ctx.stroke();
+    const loff=Math.round(a*3);
+    // 左脚
+    ctx.fillStyle='#2a2010';
+    px(cx-2,        y+20,3,2);
+    px(cx-2+loff,   y+22,3,2);
+    px(cx-2+loff*2, y+24,3,1);
+    ctx.fillStyle='#1a1008';
+    px(cx-2+loff*2, y+24,5,2);
+    // 右脚（逆位相）
+    ctx.fillStyle='#2a2010';
+    px(cx+1,        y+20,3,2);
+    px(cx+1-loff,   y+22,3,2);
+    px(cx+1-loff*2, y+24,3,1);
+    ctx.fillStyle='#1a1008';
+    px(cx+1-loff*2, y+24,5,2);
     if(P.boots){ctx.fillStyle='#ffff00';px(x,y+P.h-2,P.w,2);}
 }
 
