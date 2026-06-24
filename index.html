@@ -422,83 +422,88 @@ function drawBg(){
 function drawMedic(x,y){
     const cx=Math.floor(x)+6;
     const wa=P.onG?Math.sin(P.fr*0.3):0;
-    const loff=Math.round(wa*3);   // 脚振れ
-    const aoff=Math.round(wa*2);   // 腕振れ
+    const loff=Math.round(wa*3); // 脚の振れのみ（腕は静止）
 
-    // === ジェットパック（背中中央・後方に見える） ===
+    // === ジェットパック（飛行中・背中中央） ===
     if(wingTimer>0){
-        ctx.fillStyle='#445544'; px(cx-3,y+9,6,9);
-        ctx.fillStyle='#223322'; px(cx-2,y+10,4,6);
-        ctx.fillStyle='#667766'; px(cx-3,y+17,2,2); px(cx+1,y+17,2,2);
+        ctx.fillStyle='#445544'; px(cx-3,y+11,6,9);
+        ctx.fillStyle='#223322'; px(cx-2,y+12,4,6);
+        ctx.fillStyle='#667766'; px(cx-3,y+18,2,2); px(cx+1,y+18,2,2);
         const fl=Math.floor(t/(jetting?2:5))%2;
         const fh=jetting?6:2;
         ctx.fillStyle=fl?'#ff5500':'#ffcc00';
-        px(cx-3,y+19,2,fh); px(cx+1,y+19,2,fh);
-        if(jetting&&fl){ctx.fillStyle='rgba(255,34,0,.4)';px(cx-4,y+22,8,3);}
-        if(t%(jetting?2:4)===0)spark(cx,y+(jetting?25:22),jetting?'#ff3300':'#ff8800',jetting?3:1);
+        px(cx-3,y+20,2,fh); px(cx+1,y+20,2,fh);
+        if(jetting&&fl){ctx.fillStyle='rgba(255,34,0,.4)';px(cx-4,y+24,8,3);}
+        if(t%(jetting?2:4)===0)spark(cx,y+(jetting?27:24),jetting?'#ff3300':'#ff8800',jetting?3:1);
     }
 
-    // === 左腕（後腕・暗め・前後に振れ） ===
+    // === 医療バックパック（背中側・左側面に3px見える） ===
+    if(wingTimer<=0){
+        ctx.fillStyle='#7a5218'; px(x+0,y+11,4,9); // バッグ左面
+        ctx.fillStyle='#5a3c10'; px(x+1,y+12,2,7); // バッグ影
+        ctx.fillStyle='#cc3333'; px(x+1,y+14,1,3); // バッグ赤十字：縦
+        ctx.fillStyle='#cc3333'; px(x+0,y+15,3,1); // バッグ赤十字：横
+        ctx.fillStyle='#998866'; px(x+3,y+11,1,1); // バッグ上端
+        // 肩ひも（左肩から右腰へ斜めに）
+        ctx.fillStyle='#886030';
+        px(cx-3,y+11,2,1);         // 左肩取り付け部
+        px(cx-2,y+12,1,1);
+        px(cx-1,y+13,2,1);         // 胸を横切るひも
+        px(cx+1,y+14,1,1);
+        px(cx+2,y+15,2,1);         // 右腰へ
+    }
+
+    // === 左腕（静止・自然な垂らし位置） ===
     ctx.fillStyle='#3a6820';
-    px(x+0,y+10+aoff,3,4);
-    px(x-1,y+13+aoff,3,3);
-    ctx.fillStyle='#c4906a'; px(x-1,y+15+aoff,3,2);
+    px(x+1,y+12,3,5); // 上腕
+    px(x+0,y+16,3,3); // 前腕（やや前）
+    ctx.fillStyle='#c4906a'; px(x+0,y+18,3,2); // 左手
 
-    // === 体（左側面を暗く→奥行き感、正面胸部を明るく） ===
-    ctx.fillStyle='#3a6018'; px(x+2,y+9,2,10);   // 左側面（影）
-    ctx.fillStyle='#5a8830'; px(x+4,y+9,7,10);   // 胸部正面
+    // === 体（左側面影 + 正面胸部） ===
+    ctx.fillStyle='#3a6018'; px(x+3,y+11,2,9);  // 左側面（影・奥行き）
+    ctx.fillStyle='#5a8830'; px(x+5,y+11,6,9);  // 胸部正面
 
-    // === 胸の赤十字（正面センター・大きく明確に） ===
+    // === 胸の赤十字（正面センター） ===
     ctx.fillStyle='#ee1111';
-    px(cx-1,y+10,2,6); // 縦（太め）
-    px(cx-3,y+12,6,2); // 横
+    px(cx-0,y+12,2,5); // 縦
+    px(cx-2,y+14,5,2); // 横
 
     // === ベルト＋バックル ===
-    ctx.fillStyle='#3a5a18'; px(x+2,y+17,9,2);
-    ctx.fillStyle='#ccaa33'; px(cx-1,y+17,2,2);
+    ctx.fillStyle='#3a5a18'; px(x+3,y+18,8,2);
+    ctx.fillStyle='#ccaa33'; px(cx-0,y+18,2,2);
 
-    // === 右腕（前腕・バッグ持ち・逆位相） ===
+    // === 右腕（静止・自然な垂らし位置） ===
     ctx.fillStyle='#4a7828';
-    px(x+9,y+10-aoff,3,4);
-    px(x+10,y+13-aoff,3,3);
-    ctx.fillStyle='#d4aa66'; px(x+9,y+15-aoff,3,3);
+    px(x+9,y+12,3,5);
+    px(x+10,y+16,3,3);
+    ctx.fillStyle='#d4aa66'; px(x+10,y+18,3,2); // 右手
 
-    // === 医療バッグ（右腕先・揺れ） ===
-    if(wingTimer<=0){
-        const by=-aoff;
-        ctx.fillStyle='#8b5e10'; px(x+11,y+12+by,5,8);
-        ctx.fillStyle='#5a3a08'; px(x+12,y+13+by,3,6);
-        ctx.fillStyle='#aa7a20'; px(x+11,y+11+by,5,2);
-        ctx.fillStyle='#cc3333'; px(x+12,y+14+by,2,4);
-        ctx.fillStyle='#cc3333'; px(x+11,y+16+by,4,1);
-    }
+    // === 顔（正面向き・8px幅・大きめ） ===
+    ctx.fillStyle='#d4aa66'; px(cx-3,y+4,8,7); // 顔（8px幅）
 
-    // === 顔（センター・正面向き・7px幅） ===
-    ctx.fillStyle='#d4aa66'; px(cx-3,y+3,7,6);
+    // === ヘルメット（10px幅・7px高・大きめ） ===
+    ctx.fillStyle='#f2f2f2'; px(cx-4,y+0,10,7);
+    ctx.fillStyle='#dd2020'; px(cx-4,y+6,10,1); // 赤ライン
+    ctx.fillStyle='#ee1111'; px(cx-1,y+1,2,5); px(cx-2,y+3,4,2); // 赤十字
 
-    // === ヘルメット（9px・センター・正面向き） ===
-    ctx.fillStyle='#f2f2f2'; px(cx-4,y+0,9,6);
-    ctx.fillStyle='#dd2020'; px(cx-4,y+5,9,1);
-    ctx.fillStyle='#ee1111'; px(cx-1,y+1,2,4); px(cx-2,y+2,4,2);
-
-    // === 両目（正面向き・左右対称・一目で「顔が見える」） ===
+    // === 両目（正面向き・y+8） ===
     ctx.fillStyle='#111';
-    px(cx-2,y+7,2,2);  // 左目
-    px(cx+1,y+7,2,2);  // 右目
+    px(cx-2,y+8,2,2); // 左目
+    px(cx+2,y+8,2,2); // 右目
     ctx.fillStyle='#fff';
-    px(cx-1,y+7,1,1);  // 左目ハイライト
-    px(cx+2,y+7,1,1);  // 右目ハイライト
-    ctx.fillStyle='#b8906a'; px(cx-1,y+9,2,1); // 鼻
+    px(cx-1,y+8,1,1); // 左ハイライト
+    px(cx+3,y+8,1,1); // 右ハイライト
+    ctx.fillStyle='#b8906a'; px(cx,y+10,2,1); // 鼻
 
-    // === 脚（2本・正面3/4で両足見える） ===
-    ctx.fillStyle='#1e1808';                       // 左脚（後方色）
-    px(cx-4+loff,y+19,4,5);
-    px(cx-4,y+23,4,3);
-    ctx.fillStyle='#0d0d08'; px(cx-5,y+25,6,2);  // 左靴
-    ctx.fillStyle='#2a2010';                       // 右脚（前面色）
-    px(cx-1-loff,y+19,4,5);
-    px(cx-1,y+23,4,3);
-    ctx.fillStyle='#111'; px(cx-1,y+25,6,2);     // 右靴
+    // === 脚（2本・3/4正面・走行アニメ） ===
+    ctx.fillStyle='#1e1808'; // 左脚（背面・暗め）
+    px(cx-4+loff,y+20,4,5);
+    px(cx-4,y+24,4,3);
+    ctx.fillStyle='#0d0d08'; px(cx-5,y+26,6,2); // 左靴
+    ctx.fillStyle='#2a2010'; // 右脚（前面）
+    px(cx-1-loff,y+20,4,5);
+    px(cx-1,y+24,4,3);
+    ctx.fillStyle='#111'; px(cx-1,y+26,6,2); // 右靴
 
     if(P.boots){ctx.fillStyle='#ffff00';px(x,y+P.h-2,P.w,2);}
 }
