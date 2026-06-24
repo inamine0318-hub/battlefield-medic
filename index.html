@@ -384,54 +384,69 @@ function drawBg(){
 
 // ===== スプライト（シンプル図形） =====
 function drawMedic(x,y){
-    // 体（緑四角）
-    ctx.fillStyle='#4a8a2a'; px(x,y+8,P.w,P.h-8);
-    // 頭（白丸ヘルメット）
-    ctx.fillStyle='#e8e8e8';
-    ctx.beginPath(); ctx.arc(x+P.w/2,y+4,5,0,Math.PI*2); ctx.fill();
-    // 赤十字（頭に）
-    ctx.fillStyle='#ff2222';
-    px(x+P.w/2-1,y+1,2,6); px(x+P.w/2-3,y+3,6,2);
-    // ブーツ（黄色ライン）
-    if(P.boots){ctx.fillStyle='#ffff00'; px(x,y+P.h-2,P.w,2);}
+    const cx=Math.floor(x)+6;
+    // 医療バッグ（左・背中側）
+    ctx.fillStyle='#6a4010';
+    px(x-1,y+9,4,6);
+    ctx.fillStyle='#ff4444';
+    px(x,y+11,1,2); px(x-1,y+12,3,1);
+    // 体（オリーブ軍服）
+    ctx.fillStyle='#4a6a28';
+    px(x+2,y+9,8,11);
+    // 右腕（前方へ）
+    ctx.fillStyle='#3a5a20';
+    px(x+9,y+10,2,6);
+    // 頭（肌色・少し右寄り）
+    ctx.fillStyle='#c8a060';
+    px(cx-1,y+3,6,6);
+    // ヘルメット（頭の上50%を白い四角で深くかぶせる）
+    ctx.fillStyle='#e0e0e0';
+    px(cx-2,y+0,8,6);
+    ctx.fillStyle='#bebebe';
+    px(cx-3,y+5,10,1);
+    // 赤十字（ヘルメット内）
+    ctx.fillStyle='#ee1111';
+    px(cx,y+1,2,4);
+    px(cx-1,y+2,4,2);
+    // 目（右向き黒点・ヘルメット下の可視顔に）
+    ctx.fillStyle='#111';
+    px(cx+3,y+7,1,1);
+    // 脚（走行アニメーション）
+    ctx.strokeStyle='#2a2010'; ctx.lineWidth=2; ctx.lineCap='round';
+    const a=P.onG?Math.sin(P.fr*0.3):0;
+    ctx.beginPath();ctx.moveTo(cx-1,y+20);ctx.lineTo(cx-3+a*4,y+22);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx+2,y+20);ctx.lineTo(cx+4-a*4,y+22);ctx.stroke();
+    if(P.boots){ctx.fillStyle='#ffff00';px(x,y+P.h-2,P.w,2);}
 }
 
 function drawInjured(x,y,type){
     const stype=type||'normal';
-    // 横たわった兵士（オレンジ四角）
-    const bodyCol=stype==='shock'?'#8840b0':stype==='bleed'?'#c82020':'#c86020';
-    ctx.fillStyle=bodyCol; px(x,y+4,12,6);
-    // 頭（丸）
+    const bodyCol=stype==='shock'?'#6a3090':stype==='bleed'?'#882010':'#4a6030';
+    // 頭（肌色丸・左端）
     ctx.fillStyle='#c8a060';
-    ctx.beginPath(); ctx.arc(x-3,y+3,4,0,Math.PI*2); ctx.fill();
-
+    ctx.beginPath();ctx.arc(x+2,y+5,3.5,0,Math.PI*2);ctx.fill();
+    // ズレたヘルメット（頭の上に少し斜め）
+    ctx.fillStyle='#e0e0e0';
+    px(x-1,y+0,5,3);
+    ctx.fillStyle='#ee1111';
+    px(x+1,y+0,1,3); px(x-1,y+1,5,1);
+    // 体（横長・地面に横たわる）
+    ctx.fillStyle=bodyCol;
+    px(x+4,y+2,10,6);
+    // 脚（右端から延ばす）
+    ctx.strokeStyle='#3a2818'; ctx.lineWidth=2; ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(x+13,y+4);ctx.lineTo(x+15,y+2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x+13,y+7);ctx.lineTo(x+15,y+8);ctx.stroke();
+    // 負傷演出
     if(stype==='bleed'){
-        // 出血：赤点滅 + BLD!ラベル
-        if(Math.floor(t/6)%2===0){
-            ctx.fillStyle='#ff0000'; ctx.globalAlpha=.7;
-            px(x+2,y+4,8,5);
-            ctx.globalAlpha=1;
-        }
-        if(Math.floor(t/12)%2===0){
-            ctx.fillStyle='#ff2222'; ctx.font='bold 5px monospace'; ctx.textAlign='center';
-            ctx.fillText('BLD!',x+6,y-1);
-        }
+        if(Math.floor(t/6)%2===0){ctx.fillStyle='#ff0000';ctx.globalAlpha=.7;px(x+4,y+3,9,4);ctx.globalAlpha=1;}
+        if(Math.floor(t/12)%2===0){ctx.fillStyle='#ff2222';ctx.font='bold 5px monospace';ctx.textAlign='center';ctx.fillText('BLD!',x+7,y-1);}
     }else if(stype==='shock'){
-        // ショック：紫オーラ + PAIN!ラベル
         const jit=(Math.random()-.5)*2;
-        ctx.fillStyle='#cc44ff'; ctx.globalAlpha=.35+Math.sin(t*.3)*.15;
-        px(x+jit-1,y+2,14,9);
-        ctx.globalAlpha=1;
-        if(Math.floor(t/12)%2===0){
-            ctx.fillStyle='#cc44ff'; ctx.font='bold 5px monospace'; ctx.textAlign='center';
-            ctx.fillText('PAIN',x+6,y-1);
-        }
+        ctx.fillStyle='#cc44ff';ctx.globalAlpha=.35+Math.sin(t*.3)*.15;px(x+jit,y+1,15,9);ctx.globalAlpha=1;
+        if(Math.floor(t/12)%2===0){ctx.fillStyle='#cc44ff';ctx.font='bold 5px monospace';ctx.textAlign='center';ctx.fillText('PAIN',x+7,y-1);}
     }else{
-        // 通常：赤十字フラッシュ
-        if(Math.floor(t/12)%2===0){
-            ctx.fillStyle='#ff4444';
-            px(x+4,y-1,2,5); px(x+2,y+1,6,2);
-        }
+        if(Math.floor(t/12)%2===0){ctx.fillStyle='#44ff88';px(x+5,y-2,2,5);px(x+3,y,6,2);}
     }
 }
 
