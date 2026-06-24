@@ -384,71 +384,54 @@ function drawBg(){
 
 // ===== スプライト（シンプル図形） =====
 function drawMedic(x,y){
-    const cx=Math.floor(x)+6;
-    // 1. 頭ベース（肌色四角）
-    ctx.fillStyle='#c8a060';
-    px(cx-3,y+4,6,6);
-    // 2. 白いヘルメット（頭の上50%を深くかぶせる）
-    ctx.fillStyle='#e0e0e0';
-    px(cx-4,y+0,8,7);           // ドーム本体
-    ctx.fillStyle='#c8c8c8';
-    px(cx-5,y+6,10,1);          // ヘルメット下縁（やや広め・影色）
-    // 3. 赤十字（ヘルメット中央）
-    ctx.fillStyle='#ee1111';
-    px(cx-1,y+1,2,5);           // 縦棒
-    px(cx-3,y+3,6,2);           // 横棒
-    // 4. 目（黒点・右向き・ヘルメット下の顔に描く）
-    ctx.fillStyle='#111111';
-    px(cx+1,y+8,1,2);
-    // 5. 肩・胴体（軍服オリーブ）
-    ctx.fillStyle='#4a6a28';
-    px(x+1,y+10,10,2);
-    px(x+2,y+12,8,6);
-    // 医療バッグ（右腰・茶色）
-    ctx.fillStyle='#6a4010';
-    px(x+10,y+12,3,5);
-    ctx.fillStyle='#ff4444';
-    px(x+11,y+13,1,3); px(x+10,y+14,3,1);
-    // 脚（走行アニメーション / ジャンプ）
-    ctx.strokeStyle='#2a2010';ctx.lineWidth=2;ctx.lineCap='square';
-    if(P.onG){
-        const a=Math.sin(P.fr*0.3);
-        ctx.beginPath();ctx.moveTo(cx-2,y+18);ctx.lineTo(cx-2+a*4,y+22);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(cx+2,y+18);ctx.lineTo(cx+2-a*4,y+22);ctx.stroke();
-    }else{
-        ctx.beginPath();ctx.moveTo(cx-2,y+18);ctx.lineTo(cx-5,y+21);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(cx+2,y+18);ctx.lineTo(cx,y+21);ctx.stroke();
-    }
-    if(P.boots){ctx.fillStyle='#ffff00';px(x,y+P.h-2,P.w,2);}
+    // 体（緑四角）
+    ctx.fillStyle='#4a8a2a'; px(x,y+8,P.w,P.h-8);
+    // 頭（白丸ヘルメット）
+    ctx.fillStyle='#e8e8e8';
+    ctx.beginPath(); ctx.arc(x+P.w/2,y+4,5,0,Math.PI*2); ctx.fill();
+    // 赤十字（頭に）
+    ctx.fillStyle='#ff2222';
+    px(x+P.w/2-1,y+1,2,6); px(x+P.w/2-3,y+3,6,2);
+    // ブーツ（黄色ライン）
+    if(P.boots){ctx.fillStyle='#ffff00'; px(x,y+P.h-2,P.w,2);}
 }
 
 function drawInjured(x,y,type){
     const stype=type||'normal';
-    // 頭（肌色丸）
+    // 横たわった兵士（オレンジ四角）
+    const bodyCol=stype==='shock'?'#8840b0':stype==='bleed'?'#c82020':'#c86020';
+    ctx.fillStyle=bodyCol; px(x,y+4,12,6);
+    // 頭（丸）
     ctx.fillStyle='#c8a060';
-    ctx.beginPath();ctx.arc(x+2,y+5,3.5,0,Math.PI*2);ctx.fill();
-    // ヘルメット（上半円・オリーブ）
-    ctx.fillStyle='#6a7040';
-    ctx.beginPath();ctx.arc(x+2,y+5,4,Math.PI,0,true);ctx.closePath();ctx.fill();
-    // 体（横たわった軍服）
-    const bodyCol=stype==='shock'?'#6a3090':stype==='bleed'?'#7a2010':'#5a6030';
-    ctx.fillStyle=bodyCol;
-    px(x+5,y+2,9,6);
-    // 脚（右側に短く）
-    ctx.strokeStyle='#3a2818';ctx.lineWidth=2;ctx.lineCap='square';
-    ctx.beginPath();ctx.moveTo(x+13,y+4);ctx.lineTo(x+15,y+2);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(x+13,y+7);ctx.lineTo(x+15,y+9);ctx.stroke();
-    // 負傷演出
+    ctx.beginPath(); ctx.arc(x-3,y+3,4,0,Math.PI*2); ctx.fill();
+
     if(stype==='bleed'){
-        if(Math.floor(t/6)%2===0){ctx.fillStyle='#ff0000';ctx.globalAlpha=.7;px(x+5,y+3,8,4);ctx.globalAlpha=1;}
-        if(Math.floor(t/12)%2===0){ctx.fillStyle='#ff2222';ctx.font='bold 5px monospace';ctx.textAlign='center';ctx.fillText('BLD!',x+6,y-1);}
+        // 出血：赤点滅 + BLD!ラベル
+        if(Math.floor(t/6)%2===0){
+            ctx.fillStyle='#ff0000'; ctx.globalAlpha=.7;
+            px(x+2,y+4,8,5);
+            ctx.globalAlpha=1;
+        }
+        if(Math.floor(t/12)%2===0){
+            ctx.fillStyle='#ff2222'; ctx.font='bold 5px monospace'; ctx.textAlign='center';
+            ctx.fillText('BLD!',x+6,y-1);
+        }
     }else if(stype==='shock'){
+        // ショック：紫オーラ + PAIN!ラベル
         const jit=(Math.random()-.5)*2;
-        ctx.fillStyle='#cc44ff';ctx.globalAlpha=.35+Math.sin(t*.3)*.15;px(x+jit,y+1,14,9);ctx.globalAlpha=1;
-        if(Math.floor(t/12)%2===0){ctx.fillStyle='#cc44ff';ctx.font='bold 5px monospace';ctx.textAlign='center';ctx.fillText('PAIN',x+6,y-1);}
+        ctx.fillStyle='#cc44ff'; ctx.globalAlpha=.35+Math.sin(t*.3)*.15;
+        px(x+jit-1,y+2,14,9);
+        ctx.globalAlpha=1;
+        if(Math.floor(t/12)%2===0){
+            ctx.fillStyle='#cc44ff'; ctx.font='bold 5px monospace'; ctx.textAlign='center';
+            ctx.fillText('PAIN',x+6,y-1);
+        }
     }else{
-        // 通常：緑の＋マーク点滅
-        if(Math.floor(t/12)%2===0){ctx.fillStyle='#44ff88';px(x+5,y-2,2,5);px(x+3,y,6,2);}
+        // 通常：赤十字フラッシュ
+        if(Math.floor(t/12)%2===0){
+            ctx.fillStyle='#ff4444';
+            px(x+4,y-1,2,5); px(x+2,y+1,6,2);
+        }
     }
 }
 
