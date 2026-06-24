@@ -48,6 +48,8 @@ let shake=0, flash=0, rtxt=null, combo=0, ctmr=0, ctxt=null;
 let heliP=7300, heliR=false, dmg=0, gmsg='', safeZ=0;
 let smokePuffs=[]; // 煙幕パフ配列（ワールド座標）
 let rushTimer=0, btnFlash=0, adrenPop=0; // 無敵ラン・ボタン点灯・ポップアップ
+let wingTimer=0; // 飛行アイテム残り時間
+const WING_DUR=300; // 5秒（60fps）
 let flyParts=[]; // グレネード補給演出（飛行パーティクル）
 const RUSH_DUR=240, GOALS=[2,3,5];
 
@@ -122,7 +124,7 @@ function rst(){
     P.y=GY-P.h; P.vy=0; P.onG=true; P.inv=0; P.fr=0;
     combo=0; ctmr=0; heliP=7300; heliR=false; shake=0; flash=0; dmg=0; gmsg='';
     safeZ=heliP-900; smokePuffs=[]; pending=[]; mortars=[];
-    rushTimer=0; btnFlash=0; adrenPop=0; flyParts=[];
+    rushTimer=0; btnFlash=0; adrenPop=0; flyParts=[]; wingTimer=0;
 }
 function save(){totR+=rescued;if(score>best)best=score;localStorage.setItem('bf_total',totR);localStorage.setItem('bf_high',best);}
 
@@ -130,7 +132,8 @@ function save(){totR+=rescued;if(score>best)best=score;localStorage.setItem('bf_
 function update(){
     if(gs!=='playing')return;
     t++; P.fr++; scroll+=spd;
-    P.vy+=GR; P.y+=P.vy;
+    if(wingTimer>0){wingTimer--; P.vy*=0.75;}else P.vy+=GR;
+    P.y+=P.vy;
     if(P.y+P.h>=GY){P.y=GY-P.h;P.vy=0;P.onG=true;P.dj=false;}else P.onG=false;
     P.inv=Math.max(0,P.inv-1);
 
@@ -161,12 +164,13 @@ function update(){
             const injType=ir<.68?'normal':ir<.84?'bleed':'shock';
             inj.push({sx:gx,sy:GY-10,w:12,h:10,res:false,type:injType});
         }
-        if(t%280===0&&Math.random()<.5)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'boots'});
-        if(t%320===0&&Math.random()<.4)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'vest'});
-        if(t%380===0&&Math.random()<.35) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
-        if(t%350===0&&Math.random()<.3&&P.hp<P.mhp) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'});
-        if(t%360===0&&Math.random()<.38) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'tourn'});
-        if(t%400===0&&Math.random()<.32) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'morph'});
+        if(t%200===0&&Math.random()<.6)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'boots'});
+        if(t%240===0&&Math.random()<.55) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'vest'});
+        if(t%260===0&&Math.random()<.5)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
+        if(t%220===0&&Math.random()<.5&&P.hp<P.mhp) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'});
+        if(t%230===0&&Math.random()<.55) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'tourn'});
+        if(t%280===0&&Math.random()<.48) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'morph'});
+        if(t%500===0&&Math.random()<.3)  items.push({sx:gx,sy:GY-18,w:8,h:7,got:false,type:'wing'});
     }
 
     // pendingキュー処理：カウントダウン→obsへ移動
@@ -231,6 +235,7 @@ function update(){
             else if(it.type==='heart'){P.hp=Math.min(P.mhp,P.hp+1); spark(dx+it.w/2,it.sy,'#ff4488',12); snd(740,.2);}
             else if(it.type==='tourn'){P.tourn++; spark(dx+it.w/2,it.sy,'#ff4444',10); snd(600,.12);}
             else if(it.type==='morph'){P.morph++; spark(dx+it.w/2,it.sy,'#cc44ff',10); snd(500,.12);}
+            else if(it.type==='wing'){wingTimer=WING_DUR; spark(dx+it.w/2,it.sy,'#ffcc00',16); snd(1100,.4);}
         }
     });
     inj.forEach(s=>{
@@ -385,6 +390,13 @@ function drawBg(){
 // ===== スプライト（シンプル図形） =====
 function drawMedic(x,y){
     const cx=Math.floor(x)+6;
+    // 飛行中：翼エフェクト（体の両側）
+    if(wingTimer>0){
+        const wf=Math.floor(t/6)%2, wc=wf?'#ffcc00':'#ffaa00';
+        ctx.fillStyle=wc;
+        px(x-5,y+9, 5,3); px(x-4,y+12,4,2); px(x-3,y+14,3,2); // 左翼
+        px(x+12,y+9,5,3); px(x+12,y+12,4,2); px(x+12,y+14,3,2); // 右翼
+    }
     // 医療バッグ（左・背中側）
     ctx.fillStyle='#6a4010';
     px(x-1,y+9,4,6);
@@ -613,6 +625,15 @@ function drawUI(){
         ctx.fillStyle=`hsl(${40+rp*20},100%,55%)`;px(1,badgeY,Math.floor(50*rp),4);
         ctx.fillStyle='#ffdd00';ctx.font='bold 5px monospace';ctx.textAlign='left';
         ctx.fillText('RUSH',2,badgeY+9);
+        badgeY+=12;
+    }
+    // 飛行残り時間バー
+    if(wingTimer>0){
+        const wp=wingTimer/WING_DUR;
+        ctx.fillStyle='#333';px(1,badgeY,50,4);
+        ctx.fillStyle=`hsl(45,100%,${55+wp*15|0}%)`;px(1,badgeY,Math.floor(50*wp),4);
+        ctx.fillStyle='#ffcc00';ctx.font='bold 5px monospace';ctx.textAlign='left';
+        ctx.fillText('FLY',2,badgeY+9);
     }
 
     // アクションボタン（右下）
@@ -779,6 +800,16 @@ function draw(){
             ctx.fillStyle='#cc88ff';px(dx+3,it.sy+2,3,4);
             ctx.fillStyle='#aaaaaa';px(dx+4,it.sy,1,2);px(dx+1,it.sy+8,6,2);
             if(blink){ctx.fillStyle='#cc88ff';px(dx+3,it.sy-2,2,2);}
+        }else if(it.type==='wing'){
+            // 翼アイテム：金色の羽
+            ctx.fillStyle='#ffcc00';
+            px(dx,  it.sy+2,3,2); px(dx,  it.sy+4,4,3); // 左翼
+            px(dx+6,it.sy+2,3,2); px(dx+5,it.sy+4,4,3); // 右翼
+            ctx.fillStyle='#ff8800';
+            px(dx+3,it.sy+3,3,3); // 中心
+            ctx.fillStyle='#ffff88';
+            px(dx+3,it.sy+1,2,2); // 光
+            if(blink){ctx.fillStyle='#fff';px(dx+3,it.sy-2,2,2);}
         }
     });
 
