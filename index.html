@@ -635,8 +635,10 @@ function drawMedic(x,y){
     px(x+10,y+16,3,3);
     ctx.fillStyle='#d4aa66'; px(x+10,y+18,3,2); // 右手
 
-    // === 顔（正面向き・8px幅・大きめ） ===
-    ctx.fillStyle='#d4aa66'; px(cx-3,y+4,8,7); // 顔（8px幅）
+    // === 顔（丸型） ===
+    ctx.fillStyle='#d4aa66';
+    ctx.beginPath(); ctx.arc(cx+1,y+7,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#d4aa66'; px(cx-1,y+10,4,2); // 首
 
     // === ヘルメット（10px幅・7px高・大きめ） ===
     ctx.fillStyle='#f2f2f2'; px(cx-4,y+0,10,7);
@@ -651,6 +653,7 @@ function drawMedic(x,y){
     px(cx-1,y+8,1,1); // 左ハイライト
     px(cx+3,y+8,1,1); // 右ハイライト
     ctx.fillStyle='#b8906a'; px(cx,y+10,2,1); // 鼻
+    ctx.fillStyle='#8a4a28'; px(cx-1,y+11,3,1); // 口
 
     // === 脚（2本・3/4正面・走行アニメ） ===
     ctx.fillStyle='#1e1808'; // 左脚（背面・暗め）
@@ -1346,52 +1349,74 @@ function draw(){
         const dx=it.sx-scroll;if(dx<-10||dx>W+10)return;
         const blink=Math.floor(t/8)%2===0;
         if(it.type==='boots'){
-            ctx.fillStyle='#ffdd00';px(dx+1,it.sy+2,7,5);
-            ctx.fillStyle='#ff8800';px(dx,it.sy+6,9,3);
-            if(blink){ctx.fillStyle='#fff';px(dx+3,it.sy-2,2,2);}
+            // 軍用ブーツ（サイドシルエット：L字型 シャフト+つま先+ソール）
+            const by=it.sy;
+            ctx.fillStyle='#1e1208'; px(dx+2,by+0,4,5); // シャフト（縦）
+            ctx.fillStyle='#2a1a0c'; px(dx+2,by+0,3,4); // シャフト前面明るめ
+            ctx.fillStyle='#c8a060'; px(dx+3,by+1,1,1); px(dx+3,by+3,1,1); // 靴紐
+            ctx.fillStyle='#1a1008'; px(dx+1,by+4,7,2); // つま先〜踵（横）
+            ctx.fillStyle='#0a0806'; px(dx+0,by+6,8,2); // ソール（最下部）
+            ctx.fillStyle='#3a2010'; px(dx+1,by+6,6,1); // ソール光沢
+            if(blink){ctx.fillStyle='#ffee88';px(dx+3,by-2,2,2);}
         }else if(it.type==='vest'){
-            // 防弾ベスト：青い盾型
-            ctx.fillStyle='#2266cc';px(dx,it.sy,8,8);
-            ctx.fillStyle='#88aaff';px(dx+1,it.sy+1,6,3);
-            ctx.fillStyle='#ffffff';px(dx+3,it.sy+2,2,4);px(dx+2,it.sy+4,4,2);
-            if(blink){ctx.fillStyle='#aaccff';px(dx+3,it.sy-2,2,2);}
+            // 防弾ベスト（Vネック+肩ラインでベスト形状）
+            const vy=it.sy;
+            ctx.fillStyle='#5a7030'; px(dx+1,vy+0,6,1); // 肩（左右）
+            ctx.fillStyle='#5a7030'; px(dx+0,vy+1,3,6); // 左身頃
+            ctx.fillStyle='#5a7030'; px(dx+5,vy+1,3,6); // 右身頃
+            ctx.fillStyle='#5a7030'; px(dx+0,vy+4,8,3); // 腹部（連結）
+            ctx.fillStyle='#6a8038'; px(dx+1,vy+2,2,4); px(dx+5,vy+2,2,4); // ハイライト
+            ctx.fillStyle='#3a4a20'; px(dx+0,vy+0,1,7); px(dx+7,vy+0,1,7); // 外縁暗め
+            ctx.fillStyle='#ee2222'; // 胸の赤十字
+            px(dx+3,vy+1,2,5); px(dx+2,vy+3,4,2);
+            if(blink){ctx.fillStyle='#aabb66';px(dx+3,vy-2,2,2);}
         }else if(it.type==='grenade'){
-            // 発煙筒：緑円筒
-            ctx.fillStyle='#228822';px(dx+1,it.sy+2,6,7);
-            ctx.fillStyle='#44cc44';px(dx+2,it.sy+1,4,3);
-            ctx.fillStyle='#888';px(dx+3,it.sy,2,2);
-            if(blink){ctx.fillStyle='#aaffaa';px(dx+3,it.sy-2,2,2);}
+            // 手榴弾（卵型ボディ+ピン+レバー）
+            const gcx=dx+4, gy=it.sy;
+            ctx.fillStyle='#3a5010'; px(gcx-2,gy+1,5,1); // 上丸み
+            ctx.fillStyle='#3a5010'; px(gcx-3,gy+2,6,4); // 中央ボディ
+            ctx.fillStyle='#3a5010'; px(gcx-2,gy+6,5,1); // 下丸み
+            ctx.fillStyle='#4a6820'; px(gcx-2,gy+2,4,1); // 上ハイライト
+            ctx.fillStyle='#2a3c0c'; px(gcx-2,gy+4,5,1); px(gcx-1,gy+2,1,4); // セグメント
+            ctx.fillStyle='#aaaaaa'; px(gcx+2,gy+2,2,4); // レバー（右）
+            ctx.fillStyle='#ffcc00'; px(gcx-1,gy+0,3,2); // ピン（上・金）
+            ctx.fillStyle='#cc9900'; px(gcx-1,gy+0,3,1);
+            if(blink){ctx.fillStyle='#88ff88';px(dx+3,it.sy-2,2,2);}
         }else if(it.type==='heart'){
-            // ハート：ピンク
             drawHeart(dx+4,it.sy+4,4.5,'#ff4488');
             if(blink){ctx.fillStyle='#ffaacc';px(dx+3,it.sy-2,2,2);}
         }else if(it.type==='tourn'){
-            // 止血帯：赤い包帯十字
-            ctx.fillStyle='#cc0000';px(dx,it.sy+3,9,3);
-            ctx.fillStyle='#ff4444';px(dx+3,it.sy,3,9);
-            ctx.fillStyle='#ffffff';px(dx+1,it.sy+4,7,1);px(dx+4,it.sy+1,1,7);
-            if(blink){ctx.fillStyle='#ff8888';px(dx+3,it.sy-2,2,2);}
+            // 止血帯（腕に巻く包帯+赤十字）
+            const ty=it.sy;
+            ctx.fillStyle='#dddddd'; px(dx+0,ty+2,9,5); // 包帯ロール・白
+            ctx.fillStyle='#bbbbbb'; px(dx+1,ty+6,7,1); // 下影
+            ctx.fillStyle='#aaaaaa'; px(dx+0,ty+3,9,1); px(dx+0,ty+5,9,1); // 包帯巻き線
+            ctx.fillStyle='#cc0000'; px(dx+3,ty+2,3,5); px(dx+1,ty+4,7,2); // 赤十字
+            ctx.fillStyle='#ff4444'; px(dx+4,ty+3,1,3); px(dx+2,ty+4,5,1); // 赤十字ハイライト
+            if(blink){ctx.fillStyle='#ff8888';px(dx+3,ty-2,2,2);}
         }else if(it.type==='morph'){
-            // モルヒネ注射器：紫シリンジ
-            ctx.fillStyle='#7722aa';px(dx+2,it.sy+1,5,8);
-            ctx.fillStyle='#cc88ff';px(dx+3,it.sy+2,3,4);
-            ctx.fillStyle='#aaaaaa';px(dx+4,it.sy,1,2);px(dx+1,it.sy+8,6,2);
-            if(blink){ctx.fillStyle='#cc88ff';px(dx+3,it.sy-2,2,2);}
+            // モルヒネ注射器（シリンジ形状：縦向き）
+            const my=it.sy;
+            ctx.fillStyle='#aaaaaa'; px(dx+3,my+0,2,2); // プランジャー上部
+            ctx.fillStyle='#7722aa'; px(dx+2,my+1,5,7); // シリンダー本体
+            ctx.fillStyle='#cc88ff'; px(dx+3,my+2,3,4); // 薬液（明るい紫）
+            ctx.fillStyle='#9944cc'; px(dx+2,my+1,1,7); // 左側面影
+            ctx.fillStyle='#aaaaaa'; px(dx+1,my+7,6,1); // フランジ（底プレート）
+            ctx.fillStyle='#888888'; px(dx+4,my+8,1,2); // 針
+            if(blink){ctx.fillStyle='#dd88ff';px(dx+3,my-2,2,2);}
         }else if(it.type==='jetpack'){
-            // ジェットパック：軍用背負い式
-            ctx.fillStyle='#445544';
-            px(dx+1,it.sy,6,6);         // ボディ
-            ctx.fillStyle='#223322';
-            px(dx+2,it.sy+1,4,3);       // パネル
-            ctx.fillStyle='#667766';
-            px(dx+2,it.sy+4,2,2);       // 左ノズル
-            px(dx+5,it.sy+4,2,2);       // 右ノズル
-            // 噴射炎（点滅）
+            // ジェットパック（ツインタンク：縦2本並列）
+            const jy=it.sy;
+            ctx.fillStyle='#3a4a38'; px(dx+0,jy+0,3,6); // 左タンク
+            ctx.fillStyle='#4e6048'; px(dx+1,jy+1,1,4); // 左ハイライト
+            ctx.fillStyle='#3a4a38'; px(dx+5,jy+0,3,6); // 右タンク
+            ctx.fillStyle='#4e6048'; px(dx+6,jy+1,1,4); // 右ハイライト
+            ctx.fillStyle='#2a3020'; px(dx+3,jy+2,2,3); // 連結フレーム
+            ctx.fillStyle='#1a1a1a'; px(dx+0,jy+6,3,2); px(dx+5,jy+6,3,2); // ノズル
             const flm=Math.floor(t/4)%2;
-            ctx.fillStyle=flm?'#ff8800':'#ff4400';
-            px(dx+2,it.sy+6,2,2);
-            px(dx+5,it.sy+6,2,2);
-            if(blink){ctx.fillStyle='#ffaa44';px(dx+3,it.sy-2,2,2);}
+            ctx.fillStyle=flm?'#ff8800':'#ff4400'; px(dx+1,jy+8,1,2); px(dx+5,jy+8,1,2);
+            ctx.fillStyle=flm?'#ffff44':'#ff8800'; px(dx+1,jy+9,1,1); px(dx+5,jy+9,1,1);
+            if(blink){ctx.fillStyle='#ffaa44';px(dx+3,jy-2,2,2);}
         }
     });
 
