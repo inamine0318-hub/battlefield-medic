@@ -1371,10 +1371,22 @@ function drawOver(){
     ctx.fillStyle='rgba(0,0,0,.94)';ctx.fillRect(0,0,W,H);
     ctx.textAlign='center';
     if(gs==='start'){
-        // タイトル図形：赤十字マーク大
-        ctx.fillStyle='#cc0000'; ctx.fillRect(W/2-20,H/2-105,40,40);
-        ctx.fillStyle='#ff2222'; ctx.fillRect(W/2-6,H/2-112,12,54); ctx.fillRect(W/2-20,H/2-98,40,12);
-        ctx.fillStyle='#ffffff'; ctx.fillRect(W/2-4,H/2-110,8,50); ctx.fillRect(W/2-18,H/2-96,36,8);
+        // タイトルロゴ：M1ヘルメット（キャラと同デザイン・4倍スケール）
+        const hx=W/2, hy=H/2-114;
+        // グロー
+        ctx.globalAlpha=.13; ctx.fillStyle='#88cc44';
+        ctx.beginPath(); ctx.ellipse(hx,hy+18,34,20,0,0,Math.PI*2); ctx.fill();
+        ctx.globalAlpha=1;
+        // ドーム本体
+        ctx.fillStyle='#3a5020'; ctx.fillRect(hx-20,hy,40,24);
+        ctx.fillStyle='#2a3a18'; ctx.fillRect(hx-20,hy,40,4);   // 上端暗め
+        ctx.fillStyle='#4a6028'; ctx.fillRect(hx-16,hy+4,32,4); // ハイライト帯
+        // ブリム（M1特徴的な張り出し）
+        ctx.fillStyle='#2a3818'; ctx.fillRect(hx-24,hy+20,48,8);
+        ctx.fillStyle='#1a2810'; ctx.fillRect(hx-24,hy+26,48,2); // ブリム下端
+        // 赤十字
+        ctx.fillStyle='#dd1111'; ctx.fillRect(hx-4,hy+4,8,16); ctx.fillRect(hx-8,hy+10,16,6);
+        ctx.fillStyle='#ff4444'; ctx.fillRect(hx-3,hy+5,3,14); ctx.fillRect(hx-6,hy+11,12,4);
         txo('戦場の衛生兵',W/2,H/2-50,'#ff6622',11);
         txo('タップ = ジャンプ',W/2,H/2-18,'#aaaaaa',7);
         txo('負傷兵に触れて救助',W/2,H/2-4,'#aaaaaa',7);
