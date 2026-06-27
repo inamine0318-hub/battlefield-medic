@@ -60,6 +60,90 @@ let clearTimer=0, clearRank='', clearTitle=''; // クリア演出
 let buddy={on:false,hp:0,tmr:0,fr:0,flash:0}; // 仲間兵士
 let dailyChallenge=null; // デイリーチャレンジ
 
+// ===== BGMシステム（Web Audio API 手続き的生成） =====
+let bgmAc=null,bgmGain=null,bgmLoopTimer=null,bgmActive=false,bgmStageNum=0;
+
+// ステージ別BGMパターン [周波数Hz per beat, 0=休符]
+const BGM_DATA=[
+    // Stage1: 緊張の前線（Dマイナー・120BPM・重い軍楽）
+    {bpm:120,
+     bass: [146.8,146.8,220,196,   174.6,174.6,233.1,220],
+     lead: [0,    0,   293.7,349.2, 440,  392,  349.2,293.7],
+     kick: [1,0,0,0,  1,0,0,0],
+     snare:[0,0,1,0,  0,0,1,0]},
+    // Stage2: 強襲（Eマイナー・155BPM・緊迫の突撃）
+    {bpm:155,
+     bass: [164.8,164.8,196,246.9,  164.8,220,246.9,196],
+     lead: [329.6,0,   392, 440,    493.9,440,392,  329.6],
+     kick: [1,0,1,0,  1,0,0,0],
+     snare:[0,1,0,0,  0,1,0,0]},
+    // Stage3: 夜明けの脱出（Cメジャー・135BPM・英雄的クライマックス）
+    {bpm:135,
+     bass: [130.8,196,220,174.6,  196,196,130.8,196],
+     lead: [523.3,0,  659.3,784,  880,784,659.3,523.3],
+     kick: [1,0,0,1,  0,0,1,0],
+     snare:[0,0,1,0,  0,1,0,0]}
+];
+
+function bgmEnsure(){
+    if(!bgmAc){
+        bgmAc=new(AudioContext||webkitAudioContext)();
+        bgmGain=bgmAc.createGain();bgmGain.gain.value=0.22;bgmGain.connect(bgmAc.destination);
+    }
+    if(bgmAc.state==='suspended')bgmAc.resume();
+}
+function bgmNote(freq,st,dur,wave,vol){
+    if(!freq||!bgmAc)return;
+    const o=bgmAc.createOscillator(),g=bgmAc.createGain();
+    o.type=wave||'square';o.frequency.value=freq;
+    g.gain.setValueAtTime(vol||0.08,st);
+    g.gain.exponentialRampToValueAtTime(0.001,st+dur*0.86);
+    o.connect(g);g.connect(bgmGain);o.start(st);o.stop(st+dur);
+}
+function bgmKick(st){
+    if(!bgmAc)return;
+    const o=bgmAc.createOscillator(),g=bgmAc.createGain();
+    o.type='sine';o.frequency.setValueAtTime(160,st);
+    o.frequency.exponentialRampToValueAtTime(38,st+0.12);
+    g.gain.setValueAtTime(0.42,st);g.gain.exponentialRampToValueAtTime(0.001,st+0.16);
+    o.connect(g);g.connect(bgmGain);o.start(st);o.stop(st+0.2);
+}
+function bgmSnare(st){
+    if(!bgmAc)return;
+    const len=Math.floor(bgmAc.sampleRate*0.09);
+    const buf=bgmAc.createBuffer(1,len,bgmAc.sampleRate);
+    const d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1);
+    const src=bgmAc.createBufferSource(),flt=bgmAc.createBiquadFilter(),g=bgmAc.createGain();
+    src.buffer=buf;flt.type='highpass';flt.frequency.value=2400;
+    src.connect(flt);flt.connect(g);g.connect(bgmGain);
+    g.gain.setValueAtTime(0.14,st);g.gain.exponentialRampToValueAtTime(0.001,st+0.07);
+    src.start(st);src.stop(st+0.1);
+}
+function bgmLoop(){
+    if(!bgmActive||!bgmAc)return;
+    const data=BGM_DATA[bgmStageNum];
+    const bd=60/data.bpm;
+    const loopDur=data.bass.length*bd;
+    const st=bgmAc.currentTime+0.06;
+    for(let i=0;i<data.bass.length;i++){
+        const nt=st+i*bd;
+        if(data.bass[i]) bgmNote(data.bass[i],nt,bd*.84,'square',0.09);
+        if(data.lead[i]) bgmNote(data.lead[i],nt,bd*.76,'triangle',0.055);
+        if(data.kick[i]) bgmKick(nt);
+        if(data.snare[i]) bgmSnare(nt);
+    }
+    bgmLoopTimer=setTimeout(bgmLoop,(loopDur-0.07)*1000);
+}
+function startBgm(stg){
+    stopBgm();bgmEnsure();
+    bgmActive=true;bgmStageNum=stg-1;bgmLoop();
+}
+function stopBgm(){
+    bgmActive=false;
+    if(bgmLoopTimer){clearTimeout(bgmLoopTimer);bgmLoopTimer=null;}
+}
+// ===========================================
+
 // デイリーチャレンジ初期化
 function initDaily(){
     const today=new Date().toISOString().slice(0,10);
@@ -136,8 +220,14 @@ function canvasCoords(clientX,clientY){
 
 function inp(cx,cy){
     if(cx!==undefined&&hitBtn(cx,cy)){activateSmoke();return;}
-    if(gs==='start'){stage=1;rst();return;}
-    if(gs==='stageclear'){if(clearTimer>70){if(stage<3){stage++;rst();}else{save();location.reload();}}return;}
+    if(gs==='start'){stage=1;rst();startBgm(1);return;}
+    if(gs==='stageclear'){
+        if(clearTimer>70){
+            if(stage<3){stage++;rst();startBgm(stage);}
+            else{stopBgm();save();location.reload();}
+        }
+        return;
+    }
     if(gs==='gameover'){location.reload();return;}
     if(gs==='playing'){
         if(P.onG){P.vy=-JMP;P.onG=false;P.dj=false;snd(380,.1);}
@@ -183,6 +273,8 @@ function rst(){
     rushTimer=0; btnFlash=0; adrenPop=0; flyParts=[]; wingTimer=0; jetting=false;
     airThreats=[]; airBullets=[]; airBombs=[]; detected=0;
     enemies=[]; enemyBullets=[]; tanks=[];
+    buddy={on:false,hp:0,tmr:0,fr:0,flash:0}; // バグ修正: ステージ跨ぎで残存しないよう
+    clearTimer=0;
 }
 function save(){totR+=rescued;if(score>best)best=score;localStorage.setItem('bf_total',totR);localStorage.setItem('bf_high',best);}
 
@@ -259,13 +351,13 @@ function update(){
         }
         if(t%200===0&&Math.random()<.6  &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'boots'});
         if(t%240===0&&Math.random()<.55 &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'vest'});
-        if(t%260===0&&Math.random()<.5  &&canSpawn(gx)&&dailyChallenge?.type!=='noGrenade') items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
+        if(t%260===0&&Math.random()<.5  &&canSpawn(gx)&&!(dailyChallenge&&dailyChallenge.type==='noGrenade')) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
         if(t%220===0&&Math.random()<.5&&P.hp<P.mhp&&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'});
         if(t%230===0&&Math.random()<.55 &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'tourn'});
         if(t%280===0&&Math.random()<.48 &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'morph'});
         if(t%500===0&&Math.random()<.3  &&canSpawn(gx)) items.push({sx:gx,sy:GY-18,w:8,h:7,got:false,type:'jetpack'});
         if(t%420===0&&Math.random()<.32 &&stage>=2&&!buddy.on&&canSpawn(gx)) items.push({sx:gx,sy:GY-14,w:10,h:10,got:false,type:'buddy'});
-        if(t%260===0&&dailyChallenge?.type==='noGrenade'&&canSpawn(gx)&&Math.random()<.4) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'}); // グレネード禁止の代替補填
+        if(t%260===0&&dailyChallenge&&dailyChallenge.type==='noGrenade'&&canSpawn(gx)&&Math.random()<.4) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'}); // グレネード禁止の代替補填
 
         // 地上敵兵士（全ステージ・難易度に応じて頻度上昇）
         const ef=1+(scroll/heliP)*.6;
@@ -702,14 +794,12 @@ function update(){
             if(tgt){tgt.hit=true;spark(tgt.sx-scroll,tgt.sy||GY-14,'#ff8800',10);snd(380,.07);}
         }
     }
-    // デイリーチャレンジルール
-    if(dailyChallenge&&!dailyChallenge.done){
-        if(dailyChallenge.type==='noHit'&&dmg>0){save();gs='gameover';}
-    }
-    if(P.hp<=0){save();gs='gameover';}
+    // デイリーチャレンジルール（doneに関わらず常に適用）
+    if(dailyChallenge&&dailyChallenge.type==='noHit'&&dmg>0){save();stopBgm();gs='gameover';}
+    if(P.hp<=0){save();stopBgm();gs='gameover';}
     if(heliP-scroll<=PX+P.w&&!heliR){
         heliR=true;
-        const neededRescues=(dailyChallenge&&!dailyChallenge.done&&dailyChallenge.type==='fullRescue')?GOALS[stage-1]+2:GOALS[stage-1];
+        const neededRescues=(dailyChallenge&&dailyChallenge.type==='fullRescue')?GOALS[stage-1]+2:GOALS[stage-1];
         if(rescued>=neededRescues){
             const[cr,ct]=computeRank();clearRank=cr;clearTitle=ct;clearTimer=0;
             // デイリーボーナス（初回クリア時）
@@ -718,6 +808,7 @@ function update(){
                 localStorage.setItem('bf_daily_'+dailyChallenge.date,'1');
                 score+=dailyChallenge.bonus;
             }
+            stopBgm();
             gs='stageclear';flash=20;spark(PX,GY-60,'#00ff00',20);
             snd(cr==='S'?1200:cr==='A'?1000:880,cr==='S'?.5:.4);
         }
