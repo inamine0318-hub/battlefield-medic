@@ -173,21 +173,21 @@ function update(){
 
     if(!safe){
         const df=1+(scroll/heliP)*.8;
-        if(t%Math.max(28,Math.floor(70/df))===0){
+        if(t%Math.max(80,Math.floor(160/df))===0){
             if(stage===1){
                 // St1: 炎 / コンサーティーナワイヤー（50/50）
-                if(Math.random()<.5) pending.push({sy:GY-12,w:10,h:12,type:'fire',delay:WARN_FRAMES});
-                else                 pending.push({sy:GY-11,w:11,h:11,type:'wire',delay:WARN_FRAMES});
+                if(Math.random()<.5) pending.push({sy:GY-16,w:12,h:16,type:'fire',delay:WARN_FRAMES});
+                else                 pending.push({sy:GY-14,w:14,h:14,type:'wire',delay:WARN_FRAMES});
             }else if(stage===2){
                 // St2: 岩 / 燃料ドラム缶（50/50）
-                if(Math.random()<.5) pending.push({sy:GY-10,w:13,h:10,type:'rock',delay:WARN_FRAMES});
-                else                 pending.push({sy:GY-12,w:8, h:12,type:'drum',delay:WARN_FRAMES});
+                if(Math.random()<.5) pending.push({sy:GY-13,w:16,h:13,type:'rock',delay:WARN_FRAMES});
+                else                 pending.push({sy:GY-14,w:10,h:14,type:'drum',delay:WARN_FRAMES});
             }else{
                 // St3: 爆撃車両 / 土嚢 / 毒ガス（33/33/33）
                 const r3=Math.random();
-                if(r3<.33)      pending.push({sy:GY-12,w:22,h:12,type:'car',  delay:WARN_FRAMES});
-                else if(r3<.66) pending.push({sy:GY-10,w:16,h:10,type:'sdbag',delay:WARN_FRAMES});
-                else            pending.push({sy:GY-12,w:14,h:12,type:'gas',  delay:WARN_FRAMES});
+                if(r3<.33)      pending.push({sy:GY-14,w:26,h:14,type:'car',  delay:WARN_FRAMES});
+                else if(r3<.66) pending.push({sy:GY-12,w:20,h:12,type:'sdbag',delay:WARN_FRAMES});
+                else            pending.push({sy:GY-14,w:18,h:14,type:'gas',  delay:WARN_FRAMES});
             }
         }
         // モルタル砲（480fごと、着弾予測地点はプレイヤー前方）
