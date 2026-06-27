@@ -356,7 +356,8 @@ function update(){
         if(stage>=3&&t%700===0&&Math.random()<.48&&!airThreats.some(a=>a.type==='bomber')){
             const dir=Math.random()<.5?-1:1;
             airThreats.push({type:'bomber',x:dir<0?W+92:-92,y:12+Math.random()*14,
-                dir,sp:2.5,phase:'fly',ptimer:0,dropped:0});
+                dir,sp:2.5,phase:'fly',ptimer:0,dropped:0,strafed:0,
+                atk:Math.floor(Math.random()*3)});
         }
     }
 
@@ -397,10 +398,30 @@ function update(){
                 a.sp=Math.min(2.8,a.sp+.07);
             }
         }else{
-            // 爆撃機: 飛行中に爆弾投下（画面内かつ未超過）
-            if(a.x>30&&a.x<W-30&&a.ptimer%80===0&&a.dropped<3){
-                airBombs.push({sx:a.x+scroll,y:a.y+8,vy:0.5,phase:'fall',life:0,maxLife:28});
-                a.dropped++; snd(180,.08);
+            // 爆撃機: 3パターンランダム
+            if(a.x>30&&a.x<W-30){
+                if(a.atk===0){
+                    // Pattern A: 垂直ミサイル投下（3発）
+                    if(a.ptimer%80===0&&a.dropped<3){
+                        airBombs.push({sx:a.x+scroll,y:a.y+8,vy:0.5,phase:'fall',life:0,maxLife:28,mtype:'drop'});
+                        a.dropped++; snd(180,.08);
+                    }
+                }else if(a.atk===1){
+                    // Pattern B: 誘導ミサイル（1発・落下→水平誘導）
+                    if(!a.dropped){
+                        airBombs.push({sx:a.x+scroll,y:a.y+8,vy:1,phase:'fall',life:0,maxLife:60,mtype:'homing',hdir:0});
+                        a.dropped=1; snd(250,.1);
+                    }
+                }else{
+                    // Pattern C: 機銃掃射（斜め弾6発）
+                    if(a.ptimer%24===6&&a.strafed<6){
+                        const bx=a.x+(a.dir<0?-18:18), by=a.y+9;
+                        const tx=PX+P.w/2, ty=GY-8;
+                        const d_=Math.hypot(tx-bx,ty-by);
+                        airBullets.push({x:bx,y:by,vx:(tx-bx)/d_*5,vy:(ty-by)/d_*5,life:Math.ceil(d_/5)+18});
+                        a.strafed++; snd(380,.04);
+                    }
+                }
             }
         }
     });
@@ -420,24 +441,47 @@ function update(){
     });
     airBullets=airBullets.filter(b=>b.life>0);
 
-    // ===== 爆弾更新 =====
+    // ===== ミサイル・爆弾更新 =====
     airBombs.forEach(b=>{
         if(b.phase==='fall'){
-            b.vy=Math.min(b.vy+.38,14); b.y+=b.vy;
-            if(b.y>=GY-4){
-                b.phase='explode'; b.life=0;
+            // 誘導ミサイル: GY-38付近で水平誘導に切り替え
+            if(b.mtype==='homing'&&b.y>=GY-38&&!b.hdir){
+                b.phase='homing';
+                b.y=GY-16;
                 const bsx=b.sx-scroll;
-                spark(bsx,GY-6,'#ff8800',24); spark(bsx,GY-12,'#ffdd00',16);
-                snd(85,.6); shake=Math.max(shake,7); flash=Math.max(flash,18);
-                if(P.inv<=0&&!inSmoke()&&rushTimer<=0){
-                    const edx=Math.abs((P.x+P.w/2)-bsx);
-                    // 爆風半径28px・高さ22px（ジャンプで回避可能）
-                    if(edx<28&&P.y+P.h>=GY-22){
-                        if(P.vest){P.vest=false;P.inv=24;shake=Math.max(shake,5);spark(P.x+P.w/2,P.y,'#4488ff',14);snd(200,.2);}
-                        else{P.hp--;P.boots=false;P.inv=36;P.vy=-7;dmg++;shake=Math.max(shake,9);flash=Math.max(flash,22);snd(90,.4);}
+                b.hdir=(PX+P.w/2)>bsx?1:-1;
+                snd(300,.14); flash=Math.max(flash,6);
+            }else{
+                b.vy=Math.min(b.vy+.38,14); b.y+=b.vy;
+                if(b.y>=GY-4){
+                    b.phase='explode'; b.life=0;
+                    const bsx=b.sx-scroll;
+                    spark(bsx,GY-6,'#ff8800',24); spark(bsx,GY-12,'#ffdd00',16);
+                    snd(85,.6); shake=Math.max(shake,7); flash=Math.max(flash,18);
+                    if(P.inv<=0&&!inSmoke()&&rushTimer<=0){
+                        const edx=Math.abs((P.x+P.w/2)-bsx);
+                        if(edx<28&&P.y+P.h>=GY-22){
+                            if(P.vest){P.vest=false;P.inv=24;shake=Math.max(shake,5);spark(P.x+P.w/2,P.y,'#4488ff',14);snd(200,.2);}
+                            else{P.hp--;P.boots=false;P.inv=36;P.vy=-7;dmg++;shake=Math.max(shake,9);flash=Math.max(flash,22);snd(90,.4);}
+                        }
                     }
                 }
             }
+        }else if(b.phase==='homing'){
+            // 水平誘導：プレイヤーに向かって低空飛行（ジャンプで回避）
+            b.sx+=b.hdir*6;
+            const bsx=b.sx-scroll;
+            if(P.inv<=0&&!inSmoke()&&rushTimer<=0){
+                const edx=Math.abs((P.x+P.w/2)-bsx);
+                if(edx<12&&P.y+P.h>=GY-14){
+                    spark(bsx,b.y,'#ff8800',22); spark(bsx,b.y,'#ffdd00',14);
+                    snd(100,.5); shake=Math.max(shake,8); flash=Math.max(flash,20);
+                    b.phase='explode'; b.life=0; b.maxLife=24;
+                    if(P.vest){P.vest=false;P.inv=24;spark(P.x+P.w/2,P.y,'#4488ff',14);snd(200,.2);}
+                    else{P.hp--;P.boots=false;P.inv=36;P.vy=-6;dmg++;shake=Math.max(shake,10);flash=Math.max(flash,22);}
+                }
+            }
+            if(bsx<-40||bsx>W+40){b.phase='explode';b.life=0;b.maxLife=1;}
         }else b.life++;
     });
     airBombs=airBombs.filter(b=>!(b.phase==='explode'&&b.life>=b.maxLife));
@@ -1024,31 +1068,62 @@ function drawAirThreats(){
 
     ctx.restore();
 
-    // ─── 爆弾（落下中・地面マーカー）───（shakeの外で描画）
+    // ─── ミサイル（落下中 / 水平誘導）───（shakeの外で描画）
     airBombs.forEach(b=>{
-        if(b.phase!=='fall')return;
         const bx=b.sx-scroll;
-        if(bx<-40||bx>W+40)return;
-        // 着弾警告（地面・赤丸+X）
-        ctx.globalAlpha=.35+Math.sin(t*.55)*.25;
-        ctx.strokeStyle='#ff2200'; ctx.lineWidth=2;
-        ctx.beginPath();ctx.arc(bx,GY,20,0,Math.PI*2);ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(bx-9,GY-5);ctx.lineTo(bx+9,GY+5);
-        ctx.moveTo(bx+9,GY-5);ctx.lineTo(bx-9,GY+5);
-        ctx.stroke();
-        ctx.globalAlpha=1;
-        // 地面シャドウ（近づくほど拡大）
-        const shadowR=4+Math.floor(16*b.y/(GY-4));
-        ctx.globalAlpha=.35;
-        ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(bx,GY+2,shadowR,3,0,0,Math.PI*2);ctx.fill();
-        ctx.globalAlpha=1;
-        // 爆弾本体
-        ctx.fillStyle='#2a2a2a';ctx.beginPath();ctx.ellipse(bx,b.y,3,5,0,0,Math.PI*2);ctx.fill();
-        ctx.fillStyle='#444';ctx.beginPath();ctx.ellipse(bx-1,b.y-2,1.5,2.5,0,0,Math.PI*2);ctx.fill();
-        // 尾翼フィン
-        ctx.fillStyle='#333'; px(bx-3,b.y-9,6,4);
-        ctx.fillStyle='#1a1a1a'; px(bx-1,b.y-11,1,6); px(bx+1,b.y-11,1,6);
+        if(bx<-50||bx>W+50)return;
+
+        if(b.phase==='fall'){
+            // 着弾警告サークル
+            ctx.globalAlpha=.35+Math.sin(t*.55)*.25;
+            ctx.strokeStyle='#ff2200'; ctx.lineWidth=2;
+            ctx.beginPath();ctx.arc(bx,GY,20,0,Math.PI*2);ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(bx-9,GY-5);ctx.lineTo(bx+9,GY+5);
+            ctx.moveTo(bx+9,GY-5);ctx.lineTo(bx-9,GY+5);
+            ctx.stroke(); ctx.globalAlpha=1;
+            // シャドウ
+            const shadowR=4+Math.floor(16*b.y/(GY-4));
+            ctx.globalAlpha=.35; ctx.fillStyle='#000';
+            ctx.beginPath();ctx.ellipse(bx,GY+2,shadowR,3,0,0,Math.PI*2);ctx.fill();
+            ctx.globalAlpha=1;
+            // ミサイル本体（縦向き・尖頭）
+            ctx.fillStyle='#cc2200'; // 誘導ミサイルは赤、投下は灰色
+            if(b.mtype!=='homing') ctx.fillStyle='#2a2a2a';
+            ctx.beginPath();ctx.moveTo(bx,b.y-10);ctx.lineTo(bx-3,b.y-3);ctx.lineTo(bx+3,b.y-3);ctx.closePath();ctx.fill(); // 先端
+            if(b.mtype!=='homing') ctx.fillStyle='#3a3a3a'; else ctx.fillStyle='#dd3311';
+            px(bx-2,b.y-3,5,7); // 胴体
+            ctx.fillStyle='#555'; px(bx-1,b.y-2,3,4); // ハイライト
+            // 尾翼フィン
+            ctx.fillStyle='#444'; px(bx-4,b.y+3,3,3); px(bx+2,b.y+3,3,3);
+            ctx.fillStyle='#222'; px(bx-4,b.y+4,2,2); px(bx+3,b.y+4,2,2);
+            // 噴射炎
+            const fl=Math.floor(t/3)%2;
+            ctx.fillStyle=fl?'#ff8800':'#ffdd00';
+            ctx.beginPath();ctx.moveTo(bx-1,b.y+4);ctx.lineTo(bx+2,b.y+4);ctx.lineTo(bx,b.y+10);ctx.closePath();ctx.fill();
+
+        }else if(b.phase==='homing'){
+            // 水平誘導ミサイル警告ライン（地面レベル）
+            ctx.globalAlpha=.45+Math.sin(t*.7)*.2;
+            ctx.strokeStyle='#ff4400'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+            ctx.beginPath();
+            const warningX=b.hdir>0?bx:bx;
+            ctx.moveTo(bx,b.y); ctx.lineTo(PX+P.w/2,b.y);
+            ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1;
+            // ミサイル本体（横向き・進行方向向き）
+            const mx=bx, my=b.y;
+            ctx.save(); ctx.translate(mx,my); ctx.scale(b.hdir,1);
+            ctx.fillStyle='#cc2200';
+            ctx.beginPath();ctx.moveTo(8,0);ctx.lineTo(2,-3);ctx.lineTo(2,3);ctx.closePath();ctx.fill(); // 先端
+            ctx.fillStyle='#dd3311'; px(-6,-3,14,6); // 胴体
+            ctx.fillStyle='#ff5533'; px(-4,-2,10,4); // ハイライト
+            ctx.fillStyle='#555'; px(-8,-4,4,3); px(-8,2,4,3); // 尾翼
+            // 噴射炎
+            const flm=Math.floor(t/3)%2;
+            ctx.fillStyle=flm?'#ff8800':'#ffdd00';
+            ctx.beginPath();ctx.moveTo(-8,-2);ctx.lineTo(-8,2);ctx.lineTo(-14,0);ctx.closePath();ctx.fill();
+            ctx.restore();
+        }
     });
 }
 
