@@ -175,9 +175,8 @@ function update(){
         if(t%Math.max(28,Math.floor(70/df))===0){
             const r=Math.random();
             // obs.pushの代わりにpendingキューへ（WARN_FRAMES後にスポーン）
-            if(r<.6)                pending.push({sy:GY-13,w:13,h:13,type:'exp', delay:WARN_FRAMES});
-            else if(r<.8&&stage>=2) pending.push({sy:GY-11,w:W*.5,h:7,type:'mg',  delay:WARN_FRAMES});
-            else if(stage>=3)       pending.push({sy:GY-9, w:11,h:9, type:'wire',delay:WARN_FRAMES});
+            if(r<.6)      pending.push({sy:GY-13,w:13,h:13,type:'exp', delay:WARN_FRAMES});
+            else if(stage>=3) pending.push({sy:GY-9, w:11,h:9, type:'wire',delay:WARN_FRAMES});
         }
         // モルタル砲（480fごと、着弾予測地点はプレイヤー前方）
         if(t%480===0&&Math.random()<.45){
@@ -861,10 +860,6 @@ function drawObs(){
             ctx.beginPath();ctx.arc(dx+o.w/2,o.sy+o.h/2,o.w*.35,0,Math.PI*2);ctx.fill();
             ctx.fillStyle='#ffff44';
             ctx.beginPath();ctx.arc(dx+o.w/2,o.sy+o.h/2,o.w*.14,0,Math.PI*2);ctx.fill();
-        }else if(o.t==='mg'){
-            // 機銃：オレンジ横帯
-            ctx.fillStyle='#ff5500'; px(dx,o.sy,o.w,o.h);
-            ctx.fillStyle='#ffdd00'; px(dx,o.sy,o.w,2);
         }else{
             // 有刺鉄線：紫四角
             ctx.fillStyle='#880088'; px(dx,o.sy,o.w,o.h);
@@ -1533,7 +1528,7 @@ function draw(){
         const blink=Math.floor(t/(p.delay<20?3:7))%2===0;
         if(!blink)return;
         const wy=p.sy+p.h/2;
-        const col=p.type==='exp'?'#ff4400':p.type==='mg'?'#ff8800':'#cc00cc';
+        const col=p.type==='exp'?'#ff4400':'#cc00cc';
         ctx.fillStyle=col;
         ctx.fillRect(W-9,p.sy-1,9,p.h+2);       // 右端縦バー
         ctx.beginPath();                           // 左向き三角矢印
