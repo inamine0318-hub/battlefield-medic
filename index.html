@@ -29,7 +29,7 @@ function resize(){
 addEventListener('resize',resize); resize();
 
 const GY=H-45;   // 地面Y(275)
-const PX=50;     // プレイヤー固定X
+const PX=38;     // プレイヤー固定X（左寄りで前方視野を確保）
 
 const P={x:PX, y:GY-22, w:12, h:22, vy:0, onG:true, dj:false,
          hp:5, mhp:5, boots:false, vest:false, grenade:false,
