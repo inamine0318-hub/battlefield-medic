@@ -384,8 +384,8 @@ function update(){
         const hasBomber=airThreats.some(a=>a.type==='bomber');
 
         if(stage===1){
-            // ステージ1: ヘリのみ（600Fごと）
-            if(t%600===0&&Math.random()<.4&&!hasHeli){
+            // ステージ1: ヘリのみ（350Fごと・70%）
+            if(t%350===0&&Math.random()<.7&&!hasHeli){
                 airThreats.push({type:'heli',x:W+68,y:28+Math.random()*18,
                     dir:-1,sp:0.9,phase:'fly',ptimer:0,sxOff:0,gunFlash:0});
             }
@@ -450,30 +450,37 @@ function update(){
                 a.sp=Math.min(2.8,a.sp+.07);
             }
         }else{
-            // 爆撃機: 3パターンランダム
-            if(a.x>30&&a.x<W-30){
+            // 爆撃機: fly→attack（スロー）→leave フェーズ管理
+            if(a.phase==='fly'){
+                // 画面に入ったら攻撃フェーズへ
+                if((a.dir<0&&a.x<W-20)||(a.dir>0&&a.x>20)){
+                    a.phase='attack'; a.ptimer=0; a.sp=0.35;
+                }
+            }else if(a.phase==='attack'){
                 if(a.atk===0){
                     // Pattern A: 垂直ミサイル投下（3発）
-                    if(a.ptimer%80===0&&a.dropped<3){
+                    if(a.ptimer%90===1&&a.dropped<3){
                         airBombs.push({sx:a.x+scroll,y:a.y+8,vy:0.5,phase:'fall',life:0,maxLife:28,mtype:'drop'});
                         a.dropped++; snd(180,.08);
                     }
+                    if(a.dropped>=3&&a.ptimer>100){a.phase='leave';a.sp=0.5;}
                 }else if(a.atk===1){
                     // Pattern B: 誘導ミサイル（1発・落下→水平誘導）
                     if(!a.dropped){
                         airBombs.push({sx:a.x+scroll,y:a.y+8,vy:1,phase:'fall',life:0,maxLife:60,mtype:'homing',hdir:0});
                         a.dropped=1; snd(250,.1);
                     }
+                    if(a.ptimer>100){a.phase='leave';a.sp=0.5;}
                 }else{
-                    // Pattern C: 機銃掃射（斜め弾6発）
-                    if(a.ptimer%24===6&&a.strafed<6){
-                        const bx=a.x+(a.dir<0?-18:18), by=a.y+9;
-                        const tx=PX+P.w/2, ty=GY-8;
-                        const d_=Math.hypot(tx-bx,ty-by);
-                        airBullets.push({x:bx,y:by,vx:(tx-bx)/d_*5,vy:(ty-by)/d_*5,life:Math.ceil(d_/5)+18});
-                        a.strafed++; snd(380,.04);
+                    // Pattern C: 水平機銃掃射（地面レベル・ジャンプ回避可）
+                    if(a.ptimer%32===4&&a.strafed<4){
+                        airBullets.push({x:a.x,y:GY-16,vx:-4.5,vy:0,life:60});
+                        a.strafed++; snd(380,.05);
                     }
+                    if(a.strafed>=4&&a.ptimer>80){a.phase='leave';a.sp=0.5;}
                 }
+            }else if(a.phase==='leave'){
+                a.sp=Math.min(3.5,a.sp+0.08);
             }
         }
     });
@@ -759,13 +766,13 @@ function drawMedic(x,y){
     ctx.beginPath(); ctx.arc(cx+1,y+7,4,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#d4aa66'; px(cx-1,y+10,4,2); // 首
 
-    // === ヘルメット（M1型・丸ドーム・オリーブ・赤十字付き） ===
+    // === ヘルメット（大きめ・深かぶり・丸ドーム） ===
     ctx.fillStyle='#3a5020';
-    ctx.beginPath(); ctx.arc(cx+1,y+6,5,Math.PI,0); ctx.closePath(); ctx.fill(); // 半円ドーム
-    ctx.fillStyle='#2a3a18'; px(cx,y+1,3,2);    // 上端暗め（立体感）
-    ctx.fillStyle='#4a6028'; px(cx-2,y+2,6,1);  // ハイライト帯
-    ctx.fillStyle='#1e2e0e'; px(cx-5,y+5,12,1); // ブリム（控えめ）
-    ctx.fillStyle='#ee1111'; px(cx-1,y+2,2,3); px(cx-2,y+3,4,2); // 赤十字
+    ctx.beginPath(); ctx.arc(cx+1,y+7,7,Math.PI,0); ctx.closePath(); ctx.fill(); // radius7半円
+    ctx.fillStyle='#2a3a18'; px(cx-2,y+1,6,2);  // 上端暗め
+    ctx.fillStyle='#4a6028'; px(cx-3,y+3,8,2);  // ハイライト帯
+    ctx.fillStyle='#1e2e0e'; px(cx-7,y+6,16,2); // ブリム
+    ctx.fillStyle='#ee1111'; px(cx-1,y+2,2,5); px(cx-2,y+4,4,2); // 赤十字
 
     // === 両目（正面向き・y+8） ===
     ctx.fillStyle='#111';
