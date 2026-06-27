@@ -61,7 +61,7 @@ function snd(f,d){
     try{const ac=new(AudioContext||webkitAudioContext)(),o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=af;g.gain.setValueAtTime(.1,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}
 }
 function px(x,y,w,h){ctx.fillRect(Math.floor(x),Math.floor(y),w,h);}
-function txo(s,x,y,c,sz,al){ctx.font=`bold ${sz}px monospace`;ctx.textAlign=al||'center';ctx.fillStyle='rgba(0,0,0,.85)';ctx.fillText(s,x+1,y+1);ctx.fillStyle=c;ctx.fillText(s,x,y);}
+function txo(s,x,y,c,sz,al){ctx.font=`bold ${sz}px sans-serif`;ctx.textAlign=al||'center';ctx.fillStyle='rgba(0,0,0,.85)';ctx.fillText(s,x+1,y+1);ctx.fillStyle=c;ctx.fillText(s,x,y);}
 function spark(x,y,c,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*3,vy:(Math.random()-.5)*3-1,c,l:20,ml:20});}
 
 function activateSmoke(){
@@ -653,11 +653,11 @@ function drawMedic(x,y){
         px(cx+2,y+15,2,1);         // 右腰へ
     }
 
-    // === 左腕（静止・自然な垂らし位置） ===
+    // === 左腕（走行L字ポーズ：上腕↓→肘90°→前腕→前） ===
     ctx.fillStyle='#3a6820';
-    px(x+1,y+12,3,5); // 上腕
-    px(x+0,y+16,3,3); // 前腕（やや前）
-    ctx.fillStyle='#c4906a'; px(x+0,y+18,3,2); // 左手
+    px(x+0,y+12,3,5); // 上腕（垂直下）
+    px(x+1,y+16,5,2); // 前腕（水平・前方向）
+    ctx.fillStyle='#c4906a'; px(x+5,y+15,2,3); // 左手（前）
 
     // === 体（左側面影 + 正面胸部） ===
     ctx.fillStyle='#3a6018'; px(x+3,y+11,2,9);  // 左側面（影・奥行き）
@@ -672,21 +672,23 @@ function drawMedic(x,y){
     ctx.fillStyle='#3a5a18'; px(x+3,y+18,8,2);
     ctx.fillStyle='#ccaa33'; px(cx-0,y+18,2,2);
 
-    // === 右腕（静止・自然な垂らし位置） ===
+    // === 右腕（走行L字ポーズ：上腕↓→肘90°→前腕→前） ===
     ctx.fillStyle='#4a7828';
-    px(x+9,y+12,3,5);
-    px(x+10,y+16,3,3);
-    ctx.fillStyle='#d4aa66'; px(x+10,y+18,3,2); // 右手
+    px(x+9,y+12,3,5); // 上腕（垂直下）
+    px(x+6,y+16,5,2); // 前腕（水平・前方向）
+    ctx.fillStyle='#d4aa66'; px(x+6,y+15,2,3); // 右手（前）
 
     // === 顔（丸型） ===
     ctx.fillStyle='#d4aa66';
     ctx.beginPath(); ctx.arc(cx+1,y+7,4,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#d4aa66'; px(cx-1,y+10,4,2); // 首
 
-    // === ヘルメット（10px幅・7px高・大きめ） ===
-    ctx.fillStyle='#f2f2f2'; px(cx-4,y+0,10,7);
-    ctx.fillStyle='#dd2020'; px(cx-4,y+6,10,1); // 赤ライン
-    ctx.fillStyle='#ee1111'; px(cx-1,y+1,2,5); px(cx-2,y+3,4,2); // 赤十字
+    // === ヘルメット（M1型・オリーブ・赤十字付き） ===
+    ctx.fillStyle='#3a5020'; px(cx-4,y+0,10,6); // ドーム（オリーブ）
+    ctx.fillStyle='#2a3a18'; px(cx-4,y+0,10,1); // 上端暗め
+    ctx.fillStyle='#4a6028'; px(cx-3,y+1,8,1);  // ハイライト帯
+    ctx.fillStyle='#2a3818'; px(cx-5,y+5,12,2); // ブリム（M1らしい張り出し）
+    ctx.fillStyle='#ee1111'; px(cx-1,y+1,2,4); px(cx-2,y+3,4,2); // 赤十字
 
     // === 両目（正面向き・y+8） ===
     ctx.fillStyle='#111';
@@ -1350,7 +1352,7 @@ function drawUI(){
     if(rtxt){
         ctx.globalAlpha=rtxt.t/25;
         ctx.fillStyle=rtxt.mul>1?'#ffff00':'#00ff88';
-        ctx.font='bold 7px monospace';ctx.textAlign='center';
+        ctx.font='bold 7px sans-serif';ctx.textAlign='center';
         ctx.fillText('+'+100*rtxt.mul,rtxt.x,rtxt.y-4);
         ctx.globalAlpha=1;
     }
@@ -1358,7 +1360,7 @@ function drawUI(){
     // コンボ
     if(ctxt&&ctxt.n>1){
         ctx.globalAlpha=ctxt.t/40;
-        ctx.fillStyle='#ffff00';ctx.font='bold 8px monospace';ctx.textAlign='center';
+        ctx.fillStyle='#ffff00';ctx.font='bold 8px sans-serif';ctx.textAlign='center';
         ctx.fillText('x'+ctxt.n,W/2,46);
         ctx.globalAlpha=1;
     }
@@ -1602,9 +1604,9 @@ function draw(){
         ctx.globalAlpha=fade;
         ctx.fillStyle='#000'; ctx.fillRect(W/2-54,H/2-22,108,38);
         ctx.strokeStyle='#ffdd00'; ctx.lineWidth=2; ctx.strokeRect(W/2-54,H/2-22,108,38);
-        ctx.fillStyle='#ffff00'; ctx.font='bold 9px monospace'; ctx.textAlign='center';
+        ctx.fillStyle='#ffff00'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center';
         ctx.fillText('ADRENALINE',W/2,H/2-6);
-        ctx.fillStyle='#ff8800'; ctx.font='bold 7px monospace';
+        ctx.fillStyle='#ff8800'; ctx.font='bold 7px sans-serif';
         ctx.fillText('RUSH!',W/2,H/2+10);
         ctx.globalAlpha=1;
     }
