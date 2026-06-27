@@ -144,6 +144,18 @@ function rst(){
 }
 function save(){totR+=rescued;if(score>best)best=score;localStorage.setItem('bf_total',totR);localStorage.setItem('bf_high',best);}
 
+// 指定座標の周囲marginpx以内に既存オブジェクトがないか確認
+function canSpawn(sx, margin){
+    margin = margin||44;
+    if(obs.some(o=>!o.hit&&Math.abs(o.sx-sx)<margin))return false;
+    if(items.some(o=>!o.got&&Math.abs(o.sx-sx)<margin))return false;
+    if(inj.some(o=>!o.res&&Math.abs(o.sx-sx)<margin))return false;
+    if(enemies.some(o=>!o.hit&&Math.abs(o.sx-sx)<margin))return false;
+    if(tanks.some(tk=>Math.abs(tk.sx-sx)<margin))return false;
+    if(pending.length>0)return false; // pending処理中は待つ
+    return true;
+}
+
 // ===== UPDATE =====
 function update(){
     if(gs!=='playing')return;
@@ -173,7 +185,7 @@ function update(){
 
     if(!safe){
         const df=1+(scroll/heliP)*.8;
-        if(t%Math.max(80,Math.floor(160/df))===0){
+        if(t%Math.max(80,Math.floor(160/df))===0&&canSpawn(gx)){
             if(stage===1){
                 // St1: 炎 / コンサーティーナワイヤー（50/50）
                 if(Math.random()<.5) pending.push({sy:GY-16,w:12,h:16,type:'fire',delay:WARN_FRAMES});
@@ -197,37 +209,44 @@ function update(){
         }
         const df2=1+(scroll/heliP)*.8;
         const ii=Math.max(50,Math.floor((160-stage*15)/df2));
-        if(t%ii===0){
+        if(t%ii===0&&canSpawn(gx)){
             const ir=Math.random();
             const injType=ir<.68?'normal':ir<.84?'bleed':'shock';
             inj.push({sx:gx,sy:GY-22,w:12,h:22,res:false,type:injType});
         }
-        if(t%200===0&&Math.random()<.6)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'boots'});
-        if(t%240===0&&Math.random()<.55) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'vest'});
-        if(t%260===0&&Math.random()<.5)  items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
-        if(t%220===0&&Math.random()<.5&&P.hp<P.mhp) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'});
-        if(t%230===0&&Math.random()<.55) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'tourn'});
-        if(t%280===0&&Math.random()<.48) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'morph'});
-        if(t%500===0&&Math.random()<.3)  items.push({sx:gx,sy:GY-18,w:8,h:7,got:false,type:'jetpack'});
+        if(t%200===0&&Math.random()<.6  &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'boots'});
+        if(t%240===0&&Math.random()<.55 &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'vest'});
+        if(t%260===0&&Math.random()<.5  &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
+        if(t%220===0&&Math.random()<.5&&P.hp<P.mhp&&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'});
+        if(t%230===0&&Math.random()<.55 &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'tourn'});
+        if(t%280===0&&Math.random()<.48 &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'morph'});
+        if(t%500===0&&Math.random()<.3  &&canSpawn(gx)) items.push({sx:gx,sy:GY-18,w:8,h:7,got:false,type:'jetpack'});
 
         // 地上敵兵士（全ステージ・難易度に応じて頻度上昇）
         const ef=1+(scroll/heliP)*.6;
-        if(t%Math.max(160,Math.floor(290/ef))===0&&Math.random()<.55){
+        if(t%Math.max(160,Math.floor(290/ef))===0&&Math.random()<.55&&canSpawn(gx)){
             if(Math.random()<.55)
                 enemies.push({type:'rush',sx:gx,sy:GY-22,w:12,h:22,hit:false,fr:0,vx:1.2+Math.random()*.6});
             else
                 enemies.push({type:'gun',sx:gx,sy:GY-22,w:12,h:22,hit:false,fr:0,shotCd:40,shotFlash:0});
         }
         // 戦車（ステージ2専用・380Fごと）
-        if(stage===2&&t%380===0&&Math.random()<.65){
+        if(stage===2&&t%380===0&&Math.random()<.65&&canSpawn(gx+60)){
             tanks.push({sx:gx+60,sy:GY-14,w:22,h:14,shotCd:80,shotFlash:0});
         }
     }
 
-    // pendingキュー処理：カウントダウン→obsへ移動
+    // pendingキュー処理：カウントダウン→obsへ移動（重複チェック付き）
     pending.forEach(p=>{
         p.delay--;
-        if(p.delay<=0){obs.push({sx:scroll+W,sy:p.sy,w:p.w,h:p.h,t:p.type});p.done=true;}
+        if(p.delay<=0){
+            const osx=scroll+W;
+            if(!obs.some(o=>!o.hit&&Math.abs(o.sx-osx)<44)&&
+               !items.some(o=>!o.got&&Math.abs(o.sx-osx)<44)&&
+               !inj.some(o=>!o.res&&Math.abs(o.sx-osx)<44))
+                obs.push({sx:osx,sy:p.sy,w:p.w,h:p.h,t:p.type});
+            p.done=true;
+        }
     });
     pending=pending.filter(p=>!p.done);
 
