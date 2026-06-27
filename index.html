@@ -67,7 +67,7 @@ function spark(x,y,c,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5
 
 function activateSmoke(){
     if(gs!=='playing'||!P.grenade)return;
-    P.grenade=false;
+    P.grenade--;
     smokeAura=SMOKE_DUR;
     // 初期爆発パーティクル
     for(let i=0;i<12;i++){
@@ -133,7 +133,7 @@ document.addEventListener('keyup',e=>{
 function rst(){
     gs='playing'; scroll=0; t=0; score=0; rescued=0;
     obs=[]; inj=[]; items=[]; parts=[]; smokes=[];
-    P.hp=5; P.boots=false; P.vest=false; P.grenade=false;
+    P.hp=5; P.boots=false; P.vest=false; P.grenade=0;
     P.tourn=0; P.morph=0;
     P.y=GY-P.h; P.vy=0; P.onG=true; P.inv=0; P.fr=0;
     combo=0; ctmr=0; heliP=7300; heliR=false; shake=0; flash=0; dmg=0; gmsg='';
@@ -175,16 +175,19 @@ function update(){
         const df=1+(scroll/heliP)*.8;
         if(t%Math.max(28,Math.floor(70/df))===0){
             if(stage===1){
-                // St1: 炎 or 有刺鉄線
-                if(Math.random()<.55) pending.push({sy:GY-16,w:12,h:16,type:'fire',delay:WARN_FRAMES});
-                else                  pending.push({sy:GY-9, w:18,h:9, type:'wire',delay:WARN_FRAMES});
+                // St1: 炎 / 有刺鉄線（50/50）
+                if(Math.random()<.5) pending.push({sy:GY-16,w:12,h:16,type:'fire',delay:WARN_FRAMES});
+                else                 pending.push({sy:GY-9, w:18,h:9, type:'wire',delay:WARN_FRAMES});
             }else if(stage===2){
-                // St2: 岩（戦車は別スポーン）
-                pending.push({sy:GY-13,w:16,h:13,type:'rock',delay:WARN_FRAMES});
+                // St2: 岩 / 燃料ドラム缶（50/50）
+                if(Math.random()<.5) pending.push({sy:GY-13,w:16,h:13,type:'rock',delay:WARN_FRAMES});
+                else                 pending.push({sy:GY-14,w:10,h:14,type:'drum',delay:WARN_FRAMES});
             }else{
-                // St3: 爆撃された車両 or 炎
-                if(Math.random()<.45) pending.push({sy:GY-14,w:26,h:14,type:'car', delay:WARN_FRAMES});
-                else                  pending.push({sy:GY-16,w:12,h:16,type:'fire',delay:WARN_FRAMES});
+                // St3: 爆撃車両 / 土嚢 / 毒ガス（33/33/33）
+                const r3=Math.random();
+                if(r3<.33)      pending.push({sy:GY-14,w:26,h:14,type:'car',  delay:WARN_FRAMES});
+                else if(r3<.66) pending.push({sy:GY-12,w:20,h:12,type:'sdbag',delay:WARN_FRAMES});
+                else            pending.push({sy:GY-14,w:18,h:14,type:'gas',  delay:WARN_FRAMES});
             }
         }
         // モルタル砲（480fごと、着弾予測地点はプレイヤー前方）
@@ -289,7 +292,7 @@ function update(){
             it.got=true;
             if(it.type==='boots'){P.boots=true; spark(dx+it.w/2,it.sy,'#ffff00',8); snd(660,.12);}
             else if(it.type==='vest'){P.vest=true; spark(dx+it.w/2,it.sy,'#4488ff',10); snd(550,.15);}
-            else if(it.type==='grenade'){P.grenade=true; spark(dx+it.w/2,it.sy,'#aaffaa',10); snd(440,.15);}
+            else if(it.type==='grenade'){P.grenade=Math.min(2,P.grenade+1); spark(dx+it.w/2,it.sy,'#aaffaa',10); snd(440,.15);}
             else if(it.type==='heart'){P.hp=Math.min(P.mhp,P.hp+1); spark(dx+it.w/2,it.sy,'#ff4488',12); snd(740,.2);}
             else if(it.type==='tourn'){P.tourn++; spark(dx+it.w/2,it.sy,'#ff4444',10); snd(600,.12);}
             else if(it.type==='morph'){P.morph++; spark(dx+it.w/2,it.sy,'#cc44ff',10); snd(500,.12);}
@@ -316,7 +319,7 @@ function update(){
         if(stype==='bleed'){
             P.tourn--;
             // グレネード自動補給 + 飛行演出
-            P.grenade=true;
+            P.grenade=Math.min(2,P.grenade+1);
             for(let i=0;i<6;i++){
                 flyParts.push({x:dx+s.w/2+((Math.random()-.5)*6),
                                y:s.sy+((Math.random()-.5)*6),
@@ -940,6 +943,49 @@ function drawObs(){
             ctx.fillStyle='#444'; px(dx+1,by-3,o.w-2,3);      // 影
             ctx.fillStyle='#2a2a2a'; px(dx+7,o.sy+2,1,o.h-5); // 亀裂
 
+        }else if(o.t==='drum'){
+            // 燃料ドラム缶（赤・黄警告ライン）
+            ctx.fillStyle='#881100'; px(dx,o.sy+o.h-3,o.w,3);      // 底影
+            ctx.fillStyle='#cc2200'; px(dx+1,o.sy,o.w-2,o.h);      // 本体
+            ctx.fillStyle='#dd4422'; px(dx+2,o.sy+1,o.w-4,4);      // 上ハイライト
+            ctx.fillStyle='#ffdd00'; px(dx+1,o.sy+5,o.w-2,2);      // 警告ライン上
+            ctx.fillStyle='#ffdd00'; px(dx+1,o.sy+9,o.w-2,2);      // 警告ライン下
+            ctx.fillStyle='#444';
+            px(dx,o.sy,2,2); px(dx+o.w-2,o.sy,2,2);               // 上リム
+            px(dx,o.sy+o.h-2,2,2); px(dx+o.w-2,o.sy+o.h-2,2,2);  // 下リム
+            ctx.fillStyle='#666'; px(dx+3,o.sy,o.w-6,2);           // 天板
+
+        }else if(o.t==='sdbag'){
+            // 土嚢バリケード（2段積み）
+            // 下段3袋
+            const bw=6,bh=6,gap=1;
+            [[0,'#5a3a18'],[6+gap,'#6a4820'],[12+gap*2,'#5a3a18']].forEach(([ox,c])=>{
+                ctx.fillStyle=c; px(dx+ox,o.sy+bh,bw,bh);
+                ctx.fillStyle='#7a5830'; px(dx+ox+1,o.sy+bh+1,bw-2,3);
+                ctx.fillStyle='#3a2410'; px(dx+ox,o.sy+bh+bh-1,bw,1);
+            });
+            // 上段2袋（中央寄せ）
+            [[3,'#6a4820'],[9+gap,'#5a3a18']].forEach(([ox,c])=>{
+                ctx.fillStyle=c; px(dx+ox,o.sy,bw,bh);
+                ctx.fillStyle='#7a5830'; px(dx+ox+1,o.sy+1,bw-2,3);
+                ctx.fillStyle='#3a2410'; px(dx+ox,o.sy+bh-1,bw,1);
+            });
+
+        }else if(o.t==='gas'){
+            // 毒ガスゾーン（半透明グリーン雲）
+            const gw=t*.018;
+            ctx.globalAlpha=.55; ctx.fillStyle='#1a4400';
+            px(dx,o.sy+o.h-3,o.w,3);                               // 地面液だまり
+            ctx.globalAlpha=.4+Math.sin(gw)*.12; ctx.fillStyle='#44aa22';
+            ctx.beginPath();ctx.ellipse(dx+o.w*.45,o.sy+o.h*.55,o.w*.44,o.h*.42,0,0,Math.PI*2);ctx.fill();
+            ctx.globalAlpha=.32+Math.sin(gw+1.2)*.1; ctx.fillStyle='#55cc33';
+            ctx.beginPath();ctx.ellipse(dx+o.w*.7,o.sy+o.h*.38,o.w*.3,o.h*.35,0,0,Math.PI*2);ctx.fill();
+            ctx.globalAlpha=.28+Math.sin(gw+2.4)*.1; ctx.fillStyle='#88ee44';
+            ctx.beginPath();ctx.ellipse(dx+o.w*.25,o.sy+o.h*.3,o.w*.28,o.h*.32,0,0,Math.PI*2);ctx.fill();
+            ctx.globalAlpha=.18; ctx.fillStyle='#aaffaa';
+            ctx.beginPath();ctx.ellipse(dx+o.w*.5,o.sy+o.h*.2,o.w*.2,o.h*.22,0,0,Math.PI*2);ctx.fill();
+            ctx.globalAlpha=1;
+
         }else if(o.t==='car'){
             // 爆撃された車両（黒焦げ）
             const s=Math.floor(t/5)%2;
@@ -1365,7 +1411,7 @@ function drawItemSlots(){
         ctx.fillStyle='#44cc44'; px(sx+3,sy+1,4,3);
         ctx.fillStyle='#888'; px(sx+4,sy,2,2);
         ctx.fillStyle='#004400'; px(sx+2,sy+5,6,1);
-        next();
+        if(P.grenade>1){txo('×'+P.grenade,sx+sw+1,sy+9,'#88ff88',5,'left');next(5);}else next();
     }
     if(P.tourn>0){
         slotBG(sx);
@@ -1456,6 +1502,7 @@ function drawUI(){
         ctx.fillStyle='#228822';px(BTN_X-4,BTN_Y-5,8,10);
         ctx.fillStyle='#44cc44';px(BTN_X-3,BTN_Y-6,6,4);
         ctx.fillStyle='#aaa';px(BTN_X-1,BTN_Y-8,2,3);
+        if(P.grenade>1){ctx.globalAlpha=1;txo('×'+P.grenade,BTN_X+7,BTN_Y+8,'#88ff88',6,'left');}
     }else if(smokeAura>0){
         // 発動中：白くパルス
         const pulse=.6+Math.sin(t*.3)*.4;
