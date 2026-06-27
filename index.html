@@ -56,6 +56,15 @@ const RUSH_DUR=240, GOALS=[2,3,5];
 let airThreats=[], airBullets=[], airBombs=[], detected=0; // 航空脅威システム
 let enemies=[], enemyBullets=[]; // 地上敵兵士
 let tanks=[]; // 戦車（ステージ2）
+let clearTimer=0, clearRank='', clearTitle=''; // クリア演出
+
+function computeRank(){
+    const goal=GOALS[stage-1];
+    if(rescued>=goal&&dmg===0)return['S',stage===3?'伝説の衛生兵':'無傷の英雄'];
+    if(rescued>=goal&&dmg<=2) return['A','熟練の救護兵'];
+    if(rescued>=goal&&dmg<=5) return['B','勇敢な衛生兵'];
+    return['C','任務遂行'];
+}
 
 function snd(f,d){
     const af=(P.hp===1||rushTimer>0)?f*1.25:f; // 瀕死/ラッシュ時ピッチ+25%
@@ -101,7 +110,7 @@ function canvasCoords(clientX,clientY){
 function inp(cx,cy){
     if(cx!==undefined&&hitBtn(cx,cy)){activateSmoke();return;}
     if(gs==='start'){stage=1;rst();return;}
-    if(gs==='stageclear'){if(stage<3){stage++;rst();}else{save();location.reload();}return;}
+    if(gs==='stageclear'){if(clearTimer>70){if(stage<3){stage++;rst();}else{save();location.reload();}}return;}
     if(gs==='gameover'){location.reload();return;}
     if(gs==='playing'){
         if(P.onG){P.vy=-JMP;P.onG=false;P.dj=false;snd(380,.1);}
@@ -164,6 +173,7 @@ function canSpawn(sx, margin){
 
 // ===== UPDATE =====
 function update(){
+    if(gs==='stageclear'){clearTimer++;return;}
     if(gs!=='playing')return;
     // 速度：ステージ別ベース＋距離に応じて後半30%増し
     spd=(1.35+(stage-1)*.28)*(1+Math.min(.3,scroll/heliP*.4));
@@ -645,7 +655,11 @@ function update(){
     if(P.hp<=0){save();gs='gameover';}
     if(heliP-scroll<=PX+P.w&&!heliR){
         heliR=true;
-        if(rescued>=GOALS[stage-1]){gs='stageclear';flash=20;spark(PX,GY-60,'#00ff00',20);snd(880,.4);}
+        if(rescued>=GOALS[stage-1]){
+            const[cr,ct]=computeRank();clearRank=cr;clearTitle=ct;clearTimer=0;
+            gs='stageclear';flash=20;spark(PX,GY-60,'#00ff00',20);
+            snd(cr==='S'?1200:cr==='A'?1000:880,cr==='S'?.5:.4);
+        }
         else{save();gs='gameover';}
     }
     obs=obs.filter(o=>!o.hit&&o.sx>scroll-30);
@@ -1468,6 +1482,19 @@ function drawHeart(cx,cy,s,c){
     ctx.closePath();ctx.fill();
 }
 
+// 星描画ヘルパー（ランク演出用）
+function drawStar(cx,cy,r){
+    ctx.beginPath();
+    for(let i=0;i<5;i++){
+        const a=i*Math.PI*2/5-Math.PI/2;
+        const b=a+Math.PI/5;
+        if(i===0)ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+        else ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+        ctx.lineTo(cx+Math.cos(b)*r*.42,cy+Math.sin(b)*r*.42);
+    }
+    ctx.closePath();ctx.fill();
+}
+
 // ===== アイテムスロット（横一列）=====
 function drawItemSlots(){
     const has=P.boots||P.vest||P.grenade||P.tourn>0||P.morph>0||rushTimer>0||wingTimer>0;
@@ -1691,16 +1718,94 @@ function drawOver(){
         txo('ベスト : '+best+'pt', lx,H/2+34,'#ffaa44',7,'left');
         txo('[ タップでリトライ ]',W/2,H/2+62,'#44ff44',8);
     }else{
-        // チェックマーク
-        ctx.strokeStyle='#00ff00';ctx.lineWidth=4;
-        ctx.beginPath();ctx.moveTo(W/2-18,H/2-88);ctx.lineTo(W/2-6,H/2-74);ctx.lineTo(W/2+22,H/2-108);ctx.stroke();
-        txo('ステージ '+stage+' クリア',W/2,H/2-56,'#44ff44',10);
-        const lx=W/2-46;
-        txo('救助数 : '+rescued,lx,H/2-20,'#cccccc',7,'left');
-        txo('被弾数 : '+dmg,    lx,H/2-4, '#cccccc',7,'left');
-        txo('スコア : '+score+'pt',lx,H/2+12,'#ffff44',7,'left');
-        txo('ベスト : '+best+'pt', lx,H/2+28,'#ffaa44',7,'left');
-        txo(stage<3?'[ タップで次のステージ ]':'[ ミッション完了 ]',W/2,H/2+58,'#44ff44',8);
+        // === ステージクリア演出アニメーション ===
+        const ct=clearTimer;
+        // 深緑グラデ背景
+        const cbg=ctx.createLinearGradient(0,0,0,H);
+        cbg.addColorStop(0,'#001a00');cbg.addColorStop(1,'#000e00');
+        ctx.fillStyle=cbg;ctx.fillRect(0,0,W,H);
+
+        // 流れ星
+        for(let i=0;i<7;i++){
+            const sx_=((ct*1.6+i*29)%196);
+            const sy_=((i*51+ct*.6)%(H+20))-10;
+            ctx.globalAlpha=.2+Math.sin(i+ct*.08)*.12;
+            ctx.fillStyle='#66ff88';ctx.fillRect(sx_,sy_,1,6);
+        }
+        ctx.globalAlpha=1;
+
+        // タイトル（上からスライドイン）
+        const tSlide=ct<22?48-(22-ct)*5:48;
+        ctx.globalAlpha=Math.min(1,ct/12);
+        txo('STAGE '+stage+' CLEAR!',W/2,tSlide,'#44ff44',11);
+        ctx.globalAlpha=1;
+
+        // RANK ラベル＋ランク文字（ズームイン）
+        if(ct>20){
+            const rankColors={'S':'#ffdd00','A':'#88ccff','B':'#ff9944','C':'#aaaaaa'};
+            const rc=rankColors[clearRank]||'#aaaaaa';
+            const rs=ct<34?Math.min(1,(ct-20)/14):1;
+            const rAlpha=ct<28?(ct-20)/8:1;
+            ctx.globalAlpha=rAlpha;
+            txo('RANK',W/2,76,'#777777',7);
+            // ランク文字（大字・カスタムサイズ）
+            const rfz=Math.floor(46*rs);
+            ctx.font=`bold ${rfz}px sans-serif`;ctx.textAlign='center';
+            ctx.fillStyle='rgba(0,0,0,.92)';
+            for(const[ox,oy]of[[-3,0],[3,0],[0,-3],[0,3],[-2,-2],[2,-2],[-2,2],[2,2]])
+                ctx.fillText(clearRank,W/2+ox,112+oy);
+            ctx.fillStyle=rc;ctx.fillText(clearRank,W/2,112);
+            ctx.globalAlpha=1;
+
+            // Sランク：周回する星5つ
+            if(clearRank==='S'&&ct>34){
+                for(let i=0;i<5;i++){
+                    const a=i*Math.PI*2/5+(ct*.042);
+                    const sr=3+Math.sin(ct*.09+i)*.6;
+                    ctx.globalAlpha=.75+Math.sin(ct*.11+i)*.25;
+                    ctx.fillStyle='#ffdd00';
+                    drawStar(W/2+Math.cos(a)*34,96+Math.sin(a)*14,sr);
+                }
+                ctx.globalAlpha=1;
+            }
+            // Aランク：輝きリング
+            if(clearRank==='A'&&ct>34&&Math.floor(ct/9)%2===0){
+                ctx.globalAlpha=.28;ctx.fillStyle='#aaddff';
+                ctx.beginPath();ctx.arc(W/2,96,26,0,Math.PI*2);ctx.fill();
+                ctx.globalAlpha=1;
+            }
+        }
+
+        // 区切り線
+        if(ct>48){
+            ctx.globalAlpha=Math.min(1,(ct-48)/14);
+            ctx.strokeStyle='#2a5a2a';ctx.lineWidth=1;
+            ctx.beginPath();ctx.moveTo(18,124);ctx.lineTo(W-18,124);ctx.stroke();
+            ctx.globalAlpha=1;
+        }
+
+        // 統計（10F間隔で順次表示）
+        const slx=W/2-50;
+        if(ct>56) txo('救助数 :  '+rescued+' / '+GOALS[stage-1]+'名',slx,140,'#44ffaa',7,'left');
+        if(ct>66) txo('被弾数 :  '+dmg+'回',                          slx,156,'#cccccc',7,'left');
+        if(ct>76) txo('スコア :  '+score+' pt',                        slx,172,'#ffff44',7,'left');
+        if(ct>86) txo('ベスト :  '+best+' pt',                         slx,188,'#ffaa44',7,'left');
+
+        // 称号（フェードイン・背景パネル付き）
+        if(ct>100){
+            const ta=Math.min(1,(ct-100)/18);
+            ctx.globalAlpha=ta*.75;
+            ctx.fillStyle='rgba(0,50,0,.8)';ctx.fillRect(12,204,W-24,24);
+            ctx.strokeStyle='#3a7a3a';ctx.lineWidth=1;ctx.strokeRect(12,204,W-24,24);
+            ctx.globalAlpha=ta;
+            txo('「 '+clearTitle+' 」',W/2,220,'#eeffee',8);
+            ctx.globalAlpha=1;
+        }
+
+        // タップ案内（点滅、アニメ後半から）
+        if(ct>115&&Math.floor(ct/20)%2===0){
+            txo(stage<3?'[ タップで次のステージへ ]':'[ 全ミッション完了！ ]',W/2,H-14,'#44ff44',7);
+        }
     }
 }
 
