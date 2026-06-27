@@ -348,9 +348,9 @@ function update(){
         // 攻撃ヘリ（St1:少量680F/St2+:480F・同時1機まで）
         const heliInt=stage===1?680:480, heliCh=stage===1?.28:.52;
         if(t%heliInt===0&&Math.random()<heliCh&&!airThreats.some(a=>a.type==='heli')){
-            const dir=Math.random()<.5?-1:1;
-            airThreats.push({type:'heli',x:dir<0?W+68:-68,y:28+Math.random()*18,
-                dir,sp:0.9,phase:'fly',ptimer:0,sxOff:0,gunFlash:0});
+            // 常に右から接近（プレイヤー右側で斜め攻撃→ジャンプ回避可能）
+            airThreats.push({type:'heli',x:W+68,y:28+Math.random()*18,
+                dir:-1,sp:0.9,phase:'fly',ptimer:0,sxOff:0,gunFlash:0});
         }
         // 爆撃機（ステージ3+・700Fごと・同時1機まで）
         if(stage>=3&&t%700===0&&Math.random()<.48&&!airThreats.some(a=>a.type==='bomber')){
@@ -366,9 +366,9 @@ function update(){
         if(a.type==='heli'){
             if(a.gunFlash>0)a.gunFlash--;
             if(a.phase==='fly'){
-                // 画面中央寄りに入ったらサーチ開始
-                if((a.dir<0&&a.x<=W*.72)||(a.dir>0&&a.x>=W*.28)){
-                    a.phase='search'; a.ptimer=0; a.sp*=.18;
+                // プレイヤー右60px付近で停止（斜め攻撃ポジション）
+                if(a.x<=PX+62){
+                    a.phase='search'; a.ptimer=0; a.sp*=.15;
                 }
             }else if(a.phase==='search'){
                 a.sxOff=Math.sin(a.ptimer*.09)*44; // 照射スイープ
@@ -378,24 +378,21 @@ function update(){
                 const tgt=(PX+P.w/2)-a.x;
                 a.sxOff+=(tgt-a.sxOff)*.07;
                 if(!inSmoke()&&Math.abs((PX+P.w/2)-(a.x+a.sxOff))<22)detected=25;
-                if(a.ptimer>48){a.phase='gun';a.ptimer=0;}
+                if(a.ptimer>60){a.phase='gun';a.ptimer=0;} // 1秒の回避猶予
             }else if(a.phase==='gun'){
                 if(!inSmoke()&&Math.abs((PX+P.w/2)-(a.x+a.sxOff))<22)detected=25;
-                // 10フレームごとに機銃バースト（煙幕中は発射しない）
-                if(a.ptimer%10===0&&a.ptimer<=50&&!inSmoke()){
-                    a.gunFlash=7;
-                    const mx=a.x+(a.dir<0?14:-14), my=a.y+9;
-                    const tdx=(PX+P.w/2)-mx, tdy=GY-my;
-                    const tlen=Math.hypot(tdx,tdy);
-                    for(let i=0;i<4;i++){
-                        const sp=(i-1.5)*0.22+(Math.random()-.5)*.12;
-                        airBullets.push({x:mx,y:my,
-                            vx:(tdx/tlen+sp)*7, vy:tdy/tlen*7,
-                            life:Math.ceil(tlen/7)+10});
-                    }
+                // 3バースト・18F間隔・1発ずつ・速度5（ジャンプで回避可能）
+                if((a.ptimer===1||a.ptimer===19||a.ptimer===37)&&!inSmoke()){
+                    a.gunFlash=8;
+                    const mx=a.x+14, my=a.y+9; // 機首マズル
+                    const tx=PX+P.w/2, ty=GY-6; // 足元狙い（上半身はジャンプで回避可）
+                    const d_=Math.hypot(tx-mx,ty-my);
+                    airBullets.push({x:mx,y:my,
+                        vx:(tx-mx)/d_*5, vy:(ty-my)/d_*5,
+                        life:Math.ceil(d_/5)+14});
                     snd(380,.05);
                 }
-                if(a.ptimer>70){a.phase='leave';a.ptimer=0;a.sp=1.3;}
+                if(a.ptimer>55){a.phase='leave';a.ptimer=0;a.sp=1.3;}
             }else if(a.phase==='leave'){
                 a.sp=Math.min(2.8,a.sp+.07);
             }
@@ -952,6 +949,19 @@ function drawAirThreats(){
             ctx.globalAlpha=a.gunFlash/8;
             ctx.fillStyle='#ffff00';ctx.beginPath();ctx.arc(gx+(dir<0?8:0),y+9,4,0,Math.PI*2);ctx.fill();
             ctx.fillStyle='#ff8800';ctx.beginPath();ctx.arc(gx+(dir<0?8:0),y+9,6,0,Math.PI*2);ctx.fill();
+            ctx.globalAlpha=1;
+        }
+        // 照準線（warn phase: 斜め赤点線→ジャンプで越えると安全）
+        if(a.phase==='warn'){
+            const lmx=a.x+14, lmy=a.y+9;
+            ctx.globalAlpha=.28+Math.sin(t*.5)*.18;
+            ctx.strokeStyle='#ff4400'; ctx.lineWidth=1;
+            ctx.setLineDash([3,4]);
+            ctx.beginPath();ctx.moveTo(lmx,lmy);ctx.lineTo(PX+P.w/2,GY-6);ctx.stroke();
+            ctx.setLineDash([]);
+            // マズル先端の照準点
+            ctx.fillStyle='#ff4400';ctx.globalAlpha=.5+Math.sin(t*.5)*.3;
+            ctx.beginPath();ctx.arc(PX+P.w/2,GY-6,3,0,Math.PI*2);ctx.fill();
             ctx.globalAlpha=1;
         }
     });
