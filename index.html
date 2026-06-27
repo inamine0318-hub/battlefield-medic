@@ -382,8 +382,8 @@ function update(){
                 if(a.ptimer>60){a.phase='gun';a.ptimer=0;} // 1秒の回避猶予
             }else if(a.phase==='gun'){
                 if(!inSmoke()&&Math.abs((PX+P.w/2)-(a.x+a.sxOff))<22)detected=25;
-                // 3バースト・18F間隔・1発ずつ・速度5（ジャンプで回避可能）
-                if((a.ptimer===1||a.ptimer===19||a.ptimer===37)&&!inSmoke()){
+                // 1発・ジャンプ1回で回避可能
+                if(a.ptimer===1&&!inSmoke()){
                     a.gunFlash=8;
                     const mx=a.x+14, my=a.y+9; // 機首マズル
                     const tx=PX+P.w/2, ty=GY-6; // 足元狙い（上半身はジャンプで回避可）
