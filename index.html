@@ -62,7 +62,13 @@ function snd(f,d){
     try{const ac=new(AudioContext||webkitAudioContext)(),o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=af;g.gain.setValueAtTime(.1,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}
 }
 function px(x,y,w,h){ctx.fillRect(Math.floor(x),Math.floor(y),w,h);}
-function txo(s,x,y,c,sz,al){ctx.font=`bold ${sz}px sans-serif`;ctx.textAlign=al||'center';ctx.fillStyle='rgba(0,0,0,.85)';ctx.fillText(s,x+1,y+1);ctx.fillStyle=c;ctx.fillText(s,x,y);}
+function txo(s,x,y,c,sz,al){
+    ctx.font=`bold ${sz}px sans-serif`;ctx.textAlign=al||'center';
+    ctx.fillStyle='rgba(0,0,0,.95)';
+    for(const[ox,oy]of[[-2,0],[2,0],[0,-2],[0,2],[-1,-1],[1,-1],[-1,1],[1,1]])
+        ctx.fillText(s,x+ox,y+oy);
+    ctx.fillStyle=c;ctx.fillText(s,x,y);
+}
 function spark(x,y,c,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*3,vy:(Math.random()-.5)*3-1,c,l:20,ml:20});}
 
 function activateSmoke(){
@@ -393,7 +399,7 @@ function update(){
             // ステージ2: 爆撃機のみ（600Fごと）
             if(t%600===0&&Math.random()<.5&&!hasBomber){
                 const dir=Math.random()<.5?-1:1;
-                airThreats.push({type:'bomber',x:dir<0?W+92:-92,y:12+Math.random()*14,
+                airThreats.push({type:'bomber',x:dir<0?W+92:-92,y:38+Math.random()*12,
                     dir,sp:2.5,phase:'fly',ptimer:0,dropped:0,strafed:0,
                     atk:Math.floor(Math.random()*3)});
             }
@@ -405,7 +411,7 @@ function update(){
                         dir:-1,sp:0.9,phase:'fly',ptimer:0,sxOff:0,gunFlash:0});
                 }else{
                     const dir=Math.random()<.5?-1:1;
-                    airThreats.push({type:'bomber',x:dir<0?W+92:-92,y:12+Math.random()*14,
+                    airThreats.push({type:'bomber',x:dir<0?W+92:-92,y:38+Math.random()*12,
                         dir,sp:2.5,phase:'fly',ptimer:0,dropped:0,strafed:0,
                         atk:Math.floor(Math.random()*3)});
                 }
@@ -628,17 +634,17 @@ function drawBg(){
     const sg=ctx.createLinearGradient(0,0,0,GY);
     if(stage===1){sg.addColorStop(0,'#0a0a1e');sg.addColorStop(.7,'#1a1a35');sg.addColorStop(1,'#2a1808');}
     else if(stage===2){sg.addColorStop(0,'#080810');sg.addColorStop(.6,'#0e0e1e');sg.addColorStop(1,'#1e0e0e');}
-    else{sg.addColorStop(0,'#050508');sg.addColorStop(.4,'#0e0505');sg.addColorStop(1,'#220a03');}
+    else{sg.addColorStop(0,'#88bbdd');sg.addColorStop(.5,'#f0c060');sg.addColorStop(1,'#e07030');}
     ctx.fillStyle=sg; ctx.fillRect(0,0,W,GY);
 
     // 地平線グロー
     const hg=ctx.createLinearGradient(0,GY-30,0,GY);
     hg.addColorStop(0,'rgba(0,0,0,0)');
-    hg.addColorStop(1,stage===3?'rgba(160,30,0,.4)':'rgba(80,30,0,.2)');
+    hg.addColorStop(1,stage===3?'rgba(255,160,60,.35)':'rgba(80,30,0,.2)');
     ctx.fillStyle=hg; ctx.fillRect(0,GY-30,W,30);
 
     // 遠景山シルエット（0.15xパラックス、W幅タイル）
-    ctx.fillStyle=stage===1?'#151c3a':stage===2?'#101018':'#180a08';
+    ctx.fillStyle=stage===1?'#151c3a':stage===2?'#101018':'#4a6838';
     const moff=scroll*.15%W;
     for(let i=-1;i<3;i++){
         const mx=i*W-moff;
@@ -654,14 +660,14 @@ function drawBg(){
 
     // 中景廃墟（0.4xパラックス、60px幅タイル）
     const btw=60, boff=scroll*.4%btw;
-    ctx.fillStyle=stage===1?'#182030':stage===2?'#141018':'#1a1008';
+    ctx.fillStyle=stage===1?'#182030':stage===2?'#141018':'#3a5828';
     for(let i=-1;i<W/btw+2;i++){
         const bx=i*btw-boff, bh=18+(i*17+50)%18;
         px(bx,GY-bh,18,bh); px(bx+3,GY-bh-7,8,7); px(bx+14,GY-bh-10,6,10);
-        ctx.fillStyle='rgba(0,0,0,.55)';
+        ctx.fillStyle=stage===3?'rgba(255,255,255,.12)':'rgba(0,0,0,.55)';
         px(bx+2,GY-bh+4,3,3); px(bx+8,GY-bh+4,3,3);
         px(bx+2,GY-bh+10,3,3); px(bx+8,GY-bh+10,3,3);
-        ctx.fillStyle=stage===1?'#182030':stage===2?'#141018':'#1a1008';
+        ctx.fillStyle=stage===1?'#182030':stage===2?'#141018':'#3a5828';
     }
 
     // 煙
@@ -670,12 +676,12 @@ function drawBg(){
     ctx.globalAlpha=1;
 
     // 地面（画面最下部）
-    const gc=stage===1?'#b89450':stage===2?'#3a2c18':'#585858';
-    const gc2=stage===1?'#8a6830':stage===2?'#241a0c':'#3c3c3c';
+    const gc=stage===1?'#b89450':stage===2?'#3a2c18':'#8a9858';
+    const gc2=stage===1?'#8a6830':stage===2?'#241a0c':'#607040';
     ctx.fillStyle=gc; ctx.fillRect(0,GY,W,10);
     ctx.fillStyle=gc2; ctx.fillRect(0,GY+10,W,H-GY-10);
     // 地面ライン
-    ctx.fillStyle=stage===1?'#caa85a':stage===2?'#4a3820':'#686868';
+    ctx.fillStyle=stage===1?'#caa85a':stage===2?'#4a3820':'#aabb66';
     ctx.fillRect(0,GY,W,2);
 
     // 地面クレーター（1xスクロール、40px幅タイル）
@@ -763,8 +769,8 @@ function drawMedic(x,y){
 
     // === 顔（丸型） ===
     ctx.fillStyle='#d4aa66';
-    ctx.beginPath(); ctx.arc(cx+1,y+7,4,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#d4aa66'; px(cx-1,y+10,4,2); // 首
+    ctx.beginPath(); ctx.arc(cx+1,y+7,5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#d4aa66'; px(cx-1,y+11,4,2); // 首
 
     // === ヘルメット（大きめ・深かぶり・丸ドーム） ===
     ctx.fillStyle='#3a5020';
@@ -1264,18 +1270,18 @@ function drawAirThreats(){
         if(x<-130||x>W+130)return;
         const bw=42,bh=7;
         // 主翼（細長い）
-        ctx.fillStyle='#202020'; px(x-bw/2-14,y+3,bw+28,3);
+        ctx.fillStyle='#5a6830'; px(x-bw/2-14,y+3,bw+28,3);
         // 胴体
-        ctx.fillStyle='#282828'; px(x-bw/2,y,bw,bh);
-        ctx.fillStyle='#1a1a1a'; px(x-bw/2,y,bw,2);
-        ctx.fillStyle='#383838'; px(x-bw/2,y+2,bw,2);
+        ctx.fillStyle='#6a7838'; px(x-bw/2,y,bw,bh);
+        ctx.fillStyle='#4a5828'; px(x-bw/2,y,bw,2);
+        ctx.fillStyle='#7a8848'; px(x-bw/2,y+2,bw,2);
         // 機首
         const nx=dir<0?x+bw/2:x-bw/2-4;
-        ctx.fillStyle='#111'; px(nx,y+2,4,3);
+        ctx.fillStyle='#3a4820'; px(nx,y+2,4,3);
         // 尾翼
-        ctx.fillStyle='#1e1e1e'; px(dir<0?x-bw/2-2:x+bw/2-2,y-4,4,10);
+        ctx.fillStyle='#5a6830'; px(dir<0?x-bw/2-2:x+bw/2-2,y-4,4,10);
         // エンジン4基
-        ctx.fillStyle='#1a1a1a';
+        ctx.fillStyle='#2a2a2a';
         [-16,-6,5,15].forEach(ox=>{px(x+ox,y+4,6,5);});
         if(Math.floor(t/3)%2){
             ctx.fillStyle='#ff6600';
