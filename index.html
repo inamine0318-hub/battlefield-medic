@@ -759,12 +759,13 @@ function drawMedic(x,y){
     ctx.beginPath(); ctx.arc(cx+1,y+7,4,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#d4aa66'; px(cx-1,y+10,4,2); // 首
 
-    // === ヘルメット（M1型・オリーブ・赤十字付き） ===
-    ctx.fillStyle='#3a5020'; px(cx-4,y+0,10,6); // ドーム（オリーブ）
-    ctx.fillStyle='#2a3a18'; px(cx-4,y+0,10,1); // 上端暗め
-    ctx.fillStyle='#4a6028'; px(cx-3,y+1,8,1);  // ハイライト帯
-    ctx.fillStyle='#2a3818'; px(cx-5,y+5,12,2); // ブリム（M1らしい張り出し）
-    ctx.fillStyle='#ee1111'; px(cx-1,y+1,2,4); px(cx-2,y+3,4,2); // 赤十字
+    // === ヘルメット（M1型・丸ドーム・オリーブ・赤十字付き） ===
+    ctx.fillStyle='#3a5020';
+    ctx.beginPath(); ctx.arc(cx+1,y+6,5,Math.PI,0); ctx.closePath(); ctx.fill(); // 半円ドーム
+    ctx.fillStyle='#2a3a18'; px(cx,y+1,3,2);    // 上端暗め（立体感）
+    ctx.fillStyle='#4a6028'; px(cx-2,y+2,6,1);  // ハイライト帯
+    ctx.fillStyle='#1e2e0e'; px(cx-5,y+5,12,1); // ブリム（控えめ）
+    ctx.fillStyle='#ee1111'; px(cx-1,y+2,2,3); px(cx-2,y+3,4,2); // 赤十字
 
     // === 両目（正面向き・y+8） ===
     ctx.fillStyle='#111';
@@ -794,12 +795,13 @@ function drawInjured(x,y,type){
     const blink=Math.floor(t/8)%2===0;
     const cx=x+6;
 
-    // M1ヘルメット（22px体型用）
+    // M1ヘルメット（22px体型用・丸ドーム）
     function soldierHelmet(hx,hy,tilt){
-        ctx.fillStyle='#2a4018'; px(hx-4+tilt,hy+4,9,1); // ブリム
-        ctx.fillStyle='#3a5020'; px(hx-3+tilt,hy+0,7,5); // ドーム
-        ctx.fillStyle='#2a3a18'; px(hx-3+tilt,hy+0,7,1); // 上端暗め
-        ctx.fillStyle='#4a6028'; px(hx-2+tilt,hy+1,5,1); // ハイライト
+        ctx.fillStyle='#3a5020';
+        ctx.beginPath(); ctx.arc(hx+tilt,hy+4,4,Math.PI,0); ctx.closePath(); ctx.fill(); // 半円ドーム
+        ctx.fillStyle='#2a3a18'; px(hx-1+tilt,hy+1,3,1); // 上端暗め
+        ctx.fillStyle='#4a6028'; px(hx-2+tilt,hy+1,4,1); // ハイライト
+        ctx.fillStyle='#1e2e0e'; px(hx-4+tilt,hy+4,9,1); // ブリム（控えめ）
     }
 
     // ライフル
@@ -1598,13 +1600,13 @@ function drawOver(){
         ctx.globalAlpha=.13; ctx.fillStyle='#88cc44';
         ctx.beginPath(); ctx.ellipse(hx,hy+18,34,20,0,0,Math.PI*2); ctx.fill();
         ctx.globalAlpha=1;
-        // ドーム本体
-        ctx.fillStyle='#3a5020'; ctx.fillRect(hx-20,hy,40,24);
-        ctx.fillStyle='#2a3a18'; ctx.fillRect(hx-20,hy,40,4);   // 上端暗め
-        ctx.fillStyle='#4a6028'; ctx.fillRect(hx-16,hy+4,32,4); // ハイライト帯
-        // ブリム（M1特徴的な張り出し）
-        ctx.fillStyle='#2a3818'; ctx.fillRect(hx-24,hy+20,48,8);
-        ctx.fillStyle='#1a2810'; ctx.fillRect(hx-24,hy+26,48,2); // ブリム下端
+        // ドーム本体（半円で丸く）
+        ctx.fillStyle='#3a5020';
+        ctx.beginPath(); ctx.arc(hx,hy+24,24,Math.PI,0); ctx.closePath(); ctx.fill();
+        ctx.fillStyle='#2a3a18'; ctx.fillRect(hx-10,hy+2,20,6);  // 上端暗め
+        ctx.fillStyle='#4a6028'; ctx.fillRect(hx-16,hy+6,32,5);  // ハイライト帯
+        // ブリム（控えめ）
+        ctx.fillStyle='#1e2e0e'; ctx.fillRect(hx-26,hy+22,52,4);
         // 赤十字
         ctx.fillStyle='#dd1111'; ctx.fillRect(hx-4,hy+4,8,16); ctx.fillRect(hx-8,hy+10,16,6);
         ctx.fillStyle='#ff4444'; ctx.fillRect(hx-3,hy+5,3,14); ctx.fillRect(hx-6,hy+11,12,4);
