@@ -8,23 +8,29 @@
         * { margin:0; padding:0; }
         html,body { width:100%; height:100%; background:#000; overflow:hidden; }
         body { display:flex; justify-content:center; align-items:center; }
-        canvas { display:block; image-rendering:pixelated; image-rendering:crisp-edges; touch-action:none; z-index:0; position:relative; }
+        #gw { position:relative; font-size:0; line-height:0; }
+        #c { display:block; image-rendering:pixelated; image-rendering:crisp-edges; touch-action:none; }
+        #uic { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
     </style>
 </head>
 <body>
-<canvas id="c"></canvas>
+<div id="gw"><canvas id="c"></canvas><canvas id="uic"></canvas></div>
 <script>
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 ctx.imageSmoothingEnabled=false;
+const uic=document.getElementById('uic'),utx=uic.getContext('2d');
+let uRatio=1;
 
-// 小解像度キャンバス → CSS拡大でドット絵風に
 const W=180, H=320;
 cv.width=W; cv.height=H;
 
 function resize(){
     const s=Math.min(innerWidth/W, innerHeight/H);
-    cv.style.width=Math.floor(W*s)+'px';
-    cv.style.height=Math.floor(H*s)+'px';
+    const cw=Math.floor(W*s), ch=Math.floor(H*s);
+    cv.style.width=cw+'px'; cv.style.height=ch+'px';
+    const dpr=window.devicePixelRatio||1;
+    uic.width=Math.round(cw*dpr); uic.height=Math.round(ch*dpr);
+    uRatio=uic.width/W;
 }
 addEventListener('resize',resize); resize();
 
@@ -173,11 +179,13 @@ function snd(f,d){
 }
 function px(x,y,w,h){ctx.fillRect(Math.floor(x),Math.floor(y),w,h);}
 function txo(s,x,y,c,sz,al){
-    ctx.font=`bold ${sz}px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`;ctx.textAlign=al||'center';
-    ctx.fillStyle='rgba(0,0,0,.97)';
+    const ux=x*uRatio,uy=y*uRatio,usz=sz*uRatio;
+    utx.font=`bold ${usz}px -apple-system,'Hiragino Sans','Noto Sans JP',Arial,sans-serif`;
+    utx.textAlign=al||'center';
+    utx.fillStyle='rgba(0,0,0,.97)';
     for(const[ox,oy]of[[-2,0],[2,0],[0,-2],[0,2],[-1,-2],[1,-2],[-1,2],[1,2],[-2,-1],[2,-1]])
-        ctx.fillText(s,x+ox,y+oy);
-    ctx.fillStyle=c;ctx.fillText(s,x,y);
+        utx.fillText(s,ux+ox,uy+oy);
+    utx.fillStyle=c;utx.fillText(s,ux,uy);
 }
 function spark(x,y,c,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*3,vy:(Math.random()-.5)*3-1,c,l:20,ml:20});}
 
@@ -1046,28 +1054,28 @@ function drawVeteran(x,y){
         px(cx+2,y+17,2,1);
     }
 
-    // === 左腕（カーキ・逆位相スイング） ===
+    // === 左腕（カーキ・ガタイ良め・逆位相スイング） ===
     ctx.fillStyle='#5a5020';
-    px(x+0,y+14,3,5);
-    px(x+1+lSw,y+18,5,2);
-    ctx.fillStyle='#c4906a'; px(x+5+lSw,y+17,2,3);
+    px(x-1,y+13,4,6);
+    px(x+0+lSw,y+18,5,2);
+    ctx.fillStyle='#c4906a'; px(x+4+lSw,y+17,2,3);
 
-    // === 体（カーキ・砂漠色） ===
-    ctx.fillStyle='#5a4820'; px(x+3,y+13,2,9);
-    ctx.fillStyle='#7a6430'; px(x+5,y+13,6,9);
+    // === 体（幅広・ガタイ良） ===
+    ctx.fillStyle='#4a3818'; px(x+2,y+13,3,9);
+    ctx.fillStyle='#7a6430'; px(x+5,y+13,8,9);
 
     // === 胸の赤十字 ===
     ctx.fillStyle='#ee1111';
-    px(cx-0,y+14,2,5);
-    px(cx-2,y+16,5,2);
+    px(cx+0,y+14,2,5);
+    px(cx-2,y+16,6,2);
 
     // === ベルト ===
-    ctx.fillStyle='#4a3818'; px(x+3,y+20,8,2);
-    ctx.fillStyle='#ccaa33'; px(cx-0,y+20,2,2);
+    ctx.fillStyle='#4a3818'; px(x+2,y+20,10,2);
+    ctx.fillStyle='#ccaa33'; px(cx+0,y+20,2,2);
 
-    // === 右腕（カーキ・順位相スイング） ===
+    // === 右腕（カーキ・ガタイ良め・順位相スイング） ===
     ctx.fillStyle='#6a5828';
-    px(x+9,y+14,3,5);
+    px(x+10,y+13,4,6);
     px(x+6+rSw,y+18,5,2);
     ctx.fillStyle='#d4aa66'; px(x+10+rSw,y+17,2,3);
 
@@ -1076,23 +1084,24 @@ function drawVeteran(x,y){
     ctx.beginPath(); ctx.arc(cx+1,y+7,5,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#a87050'; px(cx-1,y+11,4,2);
 
-    // === グレーバズカット（軍人短髪・超短） ===
-    ctx.fillStyle='#888';
-    px(cx-4,y+0,10,2);
-    px(cx-5,y+2,3,2);
-    px(cx+4,y+2,3,2);
+    // === ツンツン短髪（グレー） ===
+    ctx.fillStyle='#777';
+    px(cx-4,y+1,10,2);
+    px(cx-4,y-1,2,3);
+    px(cx-2,y-2,2,4);
+    px(cx+0,y-3,2,5);
+    px(cx+2,y-2,2,4);
+    px(cx+4,y-1,2,3);
+    ctx.fillStyle='#999';
+    px(cx+1,y-3,1,2);
 
-    // === コンバットヘッドバンド（赤ライン入り・衛生兵識別） ===
-    ctx.fillStyle='#2a1c0e'; px(cx-6,y+3,13,3);
-    ctx.fillStyle='#cc2222'; px(cx-6,y+3,13,1);
-    ctx.fillStyle='#1a1008'; px(cx-6,y+5,13,1);
-
-    // === 目（鋭い） ===
+    // === 黒サングラス ===
     ctx.fillStyle='#111';
-    px(cx-2,y+7,2,2);
-    px(cx+2,y+7,2,2);
-    ctx.fillStyle='#fff';
-    px(cx-1,y+7,1,1);
+    px(cx-4,y+7,3,2);
+    px(cx+2,y+7,3,2);
+    px(cx-1,y+8,3,1);
+    ctx.fillStyle='#333';
+    px(cx-3,y+7,1,1);
     px(cx+3,y+7,1,1);
     ctx.fillStyle='#9a7050'; px(cx,y+9,2,1);
 
@@ -2028,19 +2037,23 @@ function drawUI(){
 
     // 救助ポップアップ（数字）
     if(rtxt){
-        ctx.globalAlpha=rtxt.t/25;
-        ctx.fillStyle=rtxt.mul>1?'#ffff00':'#00ff88';
-        ctx.font=`bold 7px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`;ctx.textAlign='center';
-        ctx.fillText('+'+100*rtxt.mul,rtxt.x,rtxt.y-4);
+        utx.globalAlpha=Math.min(1,rtxt.t/10);
+        utx.font=`bold ${7*uRatio}px -apple-system,'Hiragino Sans','Noto Sans JP',Arial,sans-serif`;
+        utx.textAlign='center';
+        utx.fillStyle=rtxt.mul>1?'#ffff00':'#00ff88';
+        utx.fillText('+'+100*rtxt.mul,rtxt.x*uRatio,(rtxt.y-4)*uRatio);
+        utx.globalAlpha=1;
         ctx.globalAlpha=1;
     }
 
     // コンボ
     if(ctxt&&ctxt.n>1){
-        ctx.globalAlpha=ctxt.t/40;
-        ctx.fillStyle='#ffff00';ctx.font=`bold 8px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`;ctx.textAlign='center';
-        ctx.fillText('x'+ctxt.n,W/2,46);
-        ctx.globalAlpha=1;
+        utx.globalAlpha=ctxt.t/40;
+        utx.font=`bold ${8*uRatio}px -apple-system,'Hiragino Sans','Noto Sans JP',Arial,sans-serif`;
+        utx.textAlign='center';
+        utx.fillStyle='#ffff00';
+        utx.fillText('x'+ctxt.n,(W/2)*uRatio,46*uRatio);
+        utx.globalAlpha=1;
     }
 }
 
@@ -2165,12 +2178,15 @@ function drawOver(){
             ctx.globalAlpha=rAlpha;
             txo('RANK',W/2,76,'#777777',7);
             // ランク文字（大字・カスタムサイズ）
-            const rfz=Math.floor(46*rs);
-            ctx.font=`bold ${rfz}px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`;ctx.textAlign='center';
-            ctx.fillStyle='rgba(0,0,0,.92)';
+            const rfz=Math.floor(46*rs*uRatio);
+            utx.globalAlpha=rAlpha;
+            utx.font=`bold ${rfz}px -apple-system,'Hiragino Sans','Noto Sans JP',Arial,sans-serif`;
+            utx.textAlign='center';
+            utx.fillStyle='rgba(0,0,0,.92)';
             for(const[ox,oy]of[[-3,0],[3,0],[0,-3],[0,3],[-2,-2],[2,-2],[-2,2],[2,2]])
-                ctx.fillText(clearRank,W/2+ox,112+oy);
-            ctx.fillStyle=rc;ctx.fillText(clearRank,W/2,112);
+                utx.fillText(clearRank,(W/2)*uRatio+ox,112*uRatio+oy);
+            utx.fillStyle=rc;utx.fillText(clearRank,(W/2)*uRatio,112*uRatio);
+            utx.globalAlpha=1;
             ctx.globalAlpha=1;
 
             // Sランク：周回する星5つ
@@ -2227,6 +2243,7 @@ function drawOver(){
 
 // ===== DRAW =====
 function draw(){
+    utx.clearRect(0,0,uic.width,uic.height);
     const sx=Math.round((Math.random()-.5)*shake), sy=Math.round((Math.random()-.5)*shake);
     ctx.save();ctx.translate(sx,sy);
 
@@ -2447,10 +2464,13 @@ function draw(){
         ctx.globalAlpha=fade;
         ctx.fillStyle='#000'; ctx.fillRect(W/2-54,H/2-22,108,38);
         ctx.strokeStyle='#ffdd00'; ctx.lineWidth=2; ctx.strokeRect(W/2-54,H/2-22,108,38);
-        ctx.fillStyle='#ffff00'; ctx.font=`bold 9px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`; ctx.textAlign='center';
-        ctx.fillText('ADRENALINE',W/2,H/2-6);
-        ctx.fillStyle='#ff8800'; ctx.font=`bold 7px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`;
-        ctx.fillText('RUSH!',W/2,H/2+10);
+        utx.globalAlpha=fade;
+        utx.font=`bold ${9*uRatio}px -apple-system,'Hiragino Sans','Noto Sans JP',Arial,sans-serif`;
+        utx.textAlign='center';
+        utx.fillStyle='#ffff00';utx.fillText('ADRENALINE',(W/2)*uRatio,(H/2-6)*uRatio);
+        utx.font=`bold ${7*uRatio}px -apple-system,'Hiragino Sans','Noto Sans JP',Arial,sans-serif`;
+        utx.fillStyle='#ff8800';utx.fillText('RUSH!',(W/2)*uRatio,(H/2+10)*uRatio);
+        utx.globalAlpha=1;
         ctx.globalAlpha=1;
     }
 
