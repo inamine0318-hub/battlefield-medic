@@ -64,7 +64,6 @@ let tanks=[]; // 戦車（ステージ2）
 let clearTimer=0, clearRank='', clearTitle=''; // クリア演出
 let buddy={on:false,hp:0,tmr:0,fr:0,flash:0}; // 仲間兵士
 let notif={txt:'',t:0,col:'#44ff88'}; // 汎用通知（buddy等）
-let dailyChallenge=null; // デイリーチャレンジ
 
 // ===== BGMシステム（Web Audio API 手続き的生成） =====
 let bgmAc=null,bgmGain=null,bgmLoopTimer=null,bgmActive=false,bgmStageNum=0;
@@ -150,21 +149,6 @@ function stopBgm(){
 }
 // ===========================================
 
-// デイリーチャレンジ初期化
-function initDaily(){
-    const today=new Date().toISOString().slice(0,10);
-    const types=[
-        {type:'noHit',     label:'ノーダメージラン',   desc:'被弾したら即ゲームオーバー！'},
-        {type:'noGrenade', label:'グレネード禁止',       desc:'グレネード使用・取得不可'},
-        {type:'fullRescue',label:'大量救助ミッション',   desc:'各ステージ+2名多く救助が必要'},
-    ];
-    let h=0; for(const c of today)h=(h*31+c.charCodeAt(0))&0xffff;
-    const tp=types[h%types.length];
-    const done=localStorage.getItem('bf_daily_'+today)==='1';
-    dailyChallenge={...tp,date:today,done,bonus:500};
-}
-initDaily();
-
 // バディ被弾吸収ヘルパー
 function buddyHit(){
     if(buddy.on&&buddy.hp>0){
@@ -189,7 +173,7 @@ function snd(f,d){
 }
 function px(x,y,w,h){ctx.fillRect(Math.floor(x),Math.floor(y),w,h);}
 function txo(s,x,y,c,sz,al){
-    ctx.font=`bold ${sz}px 'Courier New',Courier,monospace`;ctx.textAlign=al||'center';
+    ctx.font=`bold ${sz}px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`;ctx.textAlign=al||'center';
     ctx.fillStyle='rgba(0,0,0,.97)';
     for(const[ox,oy]of[[-2,0],[2,0],[0,-2],[0,2],[-1,-2],[1,-2],[-1,2],[1,2],[-2,-1],[2,-1]])
         ctx.fillText(s,x+ox,y+oy);
@@ -369,14 +353,12 @@ function update(){
         }
         if(t%200===0&&Math.random()<.6  &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'boots'});
         if(t%240===0&&Math.random()<.55 &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'vest'});
-        if(t%260===0&&Math.random()<.5  &&canSpawn(gx)&&!(dailyChallenge&&dailyChallenge.type==='noGrenade')) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
+        if(t%260===0&&Math.random()<.5  &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'grenade'});
         if(t%220===0&&Math.random()<.5&&P.hp<P.mhp&&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'});
         if(t%230===0&&Math.random()<.55 &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'tourn'});
         if(t%280===0&&Math.random()<.48 &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'morph'});
         if(t%500===0&&Math.random()<.3  &&canSpawn(gx)) items.push({sx:gx,sy:GY-18,w:8,h:7,got:false,type:'jetpack'});
         if(t%420===0&&Math.random()<.32 &&stage>=2&&!buddy.on&&canSpawn(gx)) items.push({sx:gx,sy:GY-14,w:10,h:10,got:false,type:'buddy'});
-        if(t%260===0&&dailyChallenge&&dailyChallenge.type==='noGrenade'&&canSpawn(gx)&&Math.random()<.4) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'heart'}); // グレネード禁止の代替補填
-
         // 地上敵兵士（全ステージ・難易度に応じて頻度上昇）
         const ef=1+(scroll/heliP)*.6;
         if(t%Math.max(160,Math.floor(290/ef))===0&&Math.random()<.55&&canSpawn(gx)){
@@ -822,11 +804,9 @@ function update(){
             if(tgt){tgt.hit=true;spark(tgt.sx-scroll,tgt.sy||GY-14,'#ff8800',10);snd(380,.07);}
         }
     }
-    // デイリーチャレンジルール（doneに関わらず常に適用）
-    if(dailyChallenge&&dailyChallenge.type==='noHit'&&dmg>0){save();stopBgm();gs='gameover';}
     if(P.hp<=0){
         if(P.revive){
-            P.hp=3;P.inv=120;P.revive=false;
+            P.hp=3;P.inv=120;P.revive=false;dmg=0;
             flash=40;shake=14;
             spark(P.x+P.w/2,P.y,'#ffffff',30);
             spark(P.x+P.w/2,P.y,'#44ff88',22);
@@ -836,15 +816,8 @@ function update(){
     }
     if(heliP-scroll<=PX+P.w&&!heliR){
         heliR=true;
-        const neededRescues=(dailyChallenge&&dailyChallenge.type==='fullRescue')?GOALS[stage-1]+2:GOALS[stage-1];
-        if(rescued>=neededRescues){
+        if(rescued>=GOALS[stage-1]){
             const[cr,ct]=computeRank();clearRank=cr;clearTitle=ct;clearTimer=0;
-            // デイリーボーナス（初回クリア時）
-            if(dailyChallenge&&!dailyChallenge.done){
-                dailyChallenge.done=true;
-                localStorage.setItem('bf_daily_'+dailyChallenge.date,'1');
-                score+=dailyChallenge.bonus;
-            }
             stopBgm();
             gs='stageclear';flash=20;spark(PX,GY-60,'#00ff00',20);
             snd(cr==='S'?1200:cr==='A'?1000:880,cr==='S'?.5:.4);
@@ -1090,32 +1063,39 @@ function drawVeteran(x,y){
     px(x+6,y+18,5,2);
     ctx.fillStyle='#d4aa66'; px(x+6,y+17,2,3);
 
-    // === 顔（日焼け・老練） ===
-    ctx.fillStyle='#c0906a';
+    // === 顔（日焼け・歴戦の猛者） ===
+    ctx.fillStyle='#a87050';
     ctx.beginPath(); ctx.arc(cx+1,y+7,5,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#c0906a'; px(cx-1,y+11,4,2);
+    ctx.fillStyle='#a87050'; px(cx-1,y+11,4,2);
 
-    // === 白髪（ヘルメットなし・老人ショートヘア） ===
-    ctx.fillStyle='#e8e8e8';
-    px(cx-4,y+1,10,3);   // 頭頂・広がった白髪
-    px(cx-5,y+3,3,4);    // 左サイド
-    px(cx+4,y+3,3,4);    // 右サイド
-    ctx.fillStyle='#d0d0d0';
-    px(cx-3,y+0,8,2);    // 前髪（少し暗め）
+    // === グレーバズカット（軍人短髪・超短） ===
+    ctx.fillStyle='#888';
+    px(cx-4,y+0,10,2);
+    px(cx-5,y+2,3,2);
+    px(cx+4,y+2,3,2);
 
-    // === 目（鋭い・老練） ===
+    // === コンバットヘッドバンド（赤ライン入り・衛生兵識別） ===
+    ctx.fillStyle='#2a1c0e'; px(cx-6,y+3,13,3);
+    ctx.fillStyle='#cc2222'; px(cx-6,y+3,13,1);
+    ctx.fillStyle='#1a1008'; px(cx-6,y+5,13,1);
+
+    // === 目（鋭い） ===
     ctx.fillStyle='#111';
     px(cx-2,y+7,2,2);
     px(cx+2,y+7,2,2);
     ctx.fillStyle='#fff';
     px(cx-1,y+7,1,1);
     px(cx+3,y+7,1,1);
-    ctx.fillStyle='#9a7050'; px(cx,y+9,2,1); // 鼻（深め）
+    ctx.fillStyle='#9a7050'; px(cx,y+9,2,1);
 
-    // === 白髭 ===
-    ctx.fillStyle='#e8e8e8';
-    px(cx-3,y+10,7,2); // 口ひげ
-    px(cx-2,y+12,5,2); // あごひげ
+    // === 頬傷（戦場の勲章） ===
+    ctx.fillStyle='#7a4030'; px(cx-3,y+8,1,3);
+
+    // === グレースタブル（無精ひげ・ワイルド） ===
+    ctx.fillStyle='#666';
+    px(cx-3,y+10,7,1);
+    px(cx-3,y+11,7,1);
+    px(cx-4,y+9,2,1); px(cx+4,y+9,2,1);
 
     // === 脚（カーキ） ===
     ctx.fillStyle='#2a2010';
@@ -2042,7 +2022,7 @@ function drawUI(){
     if(rtxt){
         ctx.globalAlpha=rtxt.t/25;
         ctx.fillStyle=rtxt.mul>1?'#ffff00':'#00ff88';
-        ctx.font=`bold 7px 'Courier New',Courier,monospace`;ctx.textAlign='center';
+        ctx.font=`bold 7px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`;ctx.textAlign='center';
         ctx.fillText('+'+100*rtxt.mul,rtxt.x,rtxt.y-4);
         ctx.globalAlpha=1;
     }
@@ -2050,7 +2030,7 @@ function drawUI(){
     // コンボ
     if(ctxt&&ctxt.n>1){
         ctx.globalAlpha=ctxt.t/40;
-        ctx.fillStyle='#ffff00';ctx.font=`bold 8px 'Courier New',Courier,monospace`;ctx.textAlign='center';
+        ctx.fillStyle='#ffff00';ctx.font=`bold 8px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`;ctx.textAlign='center';
         ctx.fillText('x'+ctxt.n,W/2,46);
         ctx.globalAlpha=1;
     }
@@ -2133,19 +2113,6 @@ function drawOver(){
         txo('[ タップでスタート ]',W/2,195,'#44ff44',8);
         if(best>0)txo('ベスト:'+best+'pt  合計:'+totR,W/2,212,'#ffff44',7);
 
-        // ── デイリーチャレンジ ──
-        if(dailyChallenge){
-            const dy=228;
-            ctx.fillStyle='rgba(0,40,0,.8)';ctx.fillRect(8,dy-12,W-16,36);
-            ctx.strokeStyle=dailyChallenge.done?'#226622':'#44cc44';ctx.lineWidth=1;ctx.strokeRect(8,dy-12,W-16,36);
-            if(dailyChallenge.done){
-                txo('⚡ DAILY  ✓ COMPLETED',W/2,dy,'#44ff44',7);
-                txo(dailyChallenge.label,W/2,dy+14,'#226622',7);
-            }else{
-                txo('⚡ DAILY CHALLENGE +500pt',W/2,dy,'#ffff44',7);
-                txo(dailyChallenge.label,W/2,dy+14,'#44ff88',7);
-            }
-        }
     }else if(gs==='gameover'){
         // X マーク
         ctx.strokeStyle='#ff4444';ctx.lineWidth=4;
@@ -2191,7 +2158,7 @@ function drawOver(){
             txo('RANK',W/2,76,'#777777',7);
             // ランク文字（大字・カスタムサイズ）
             const rfz=Math.floor(46*rs);
-            ctx.font=`bold ${rfz}px 'Courier New',Courier,monospace`;ctx.textAlign='center';
+            ctx.font=`bold ${rfz}px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`;ctx.textAlign='center';
             ctx.fillStyle='rgba(0,0,0,.92)';
             for(const[ox,oy]of[[-3,0],[3,0],[0,-3],[0,3],[-2,-2],[2,-2],[-2,2],[2,2]])
                 ctx.fillText(clearRank,W/2+ox,112+oy);
@@ -2243,14 +2210,6 @@ function drawOver(){
             ctx.globalAlpha=1;
         }
 
-        // デイリー達成バッジ
-        if(dailyChallenge&&dailyChallenge.done&&ct>95){
-            ctx.globalAlpha=Math.min(1,(ct-95)/12);
-            ctx.fillStyle='rgba(40,80,0,.85)';ctx.fillRect(10,233,W-20,18);
-            ctx.strokeStyle='#88ff44';ctx.lineWidth=1;ctx.strokeRect(10,233,W-20,18);
-            txo('⚡ DAILY CLEAR！ +500pt',W/2,245,'#ccff44',7);
-            ctx.globalAlpha=1;
-        }
         // タップ案内（点滅、アニメ後半から）
         if(ct>115&&Math.floor(ct/20)%2===0){
             txo(stage<3?'[ タップで次のステージへ ]':'[ 全ミッション完了！ ]',W/2,H-14,'#44ff44',7);
@@ -2480,9 +2439,9 @@ function draw(){
         ctx.globalAlpha=fade;
         ctx.fillStyle='#000'; ctx.fillRect(W/2-54,H/2-22,108,38);
         ctx.strokeStyle='#ffdd00'; ctx.lineWidth=2; ctx.strokeRect(W/2-54,H/2-22,108,38);
-        ctx.fillStyle='#ffff00'; ctx.font=`bold 9px 'Courier New',Courier,monospace`; ctx.textAlign='center';
+        ctx.fillStyle='#ffff00'; ctx.font=`bold 9px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`; ctx.textAlign='center';
         ctx.fillText('ADRENALINE',W/2,H/2-6);
-        ctx.fillStyle='#ff8800'; ctx.font=`bold 7px 'Courier New',Courier,monospace`;
+        ctx.fillStyle='#ff8800'; ctx.font=`bold 7px -apple-system,'Hiragino Sans','Noto Sans JP','Yu Gothic',Arial,sans-serif`;
         ctx.fillText('RUSH!',W/2,H/2+10);
         ctx.globalAlpha=1;
     }
