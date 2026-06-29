@@ -911,8 +911,12 @@ function drawBg(){
 // ===== スプライト（シンプル図形） =====
 function drawMedic(x,y){
     const cx=Math.floor(x)+6;
-    const wa=P.onG?Math.sin(P.fr*0.3):0;
-    const loff=Math.round(wa*3); // 脚の振れのみ（腕は静止）
+    const wa=P.onG?Math.sin(P.fr*0.32):0;
+    const bob=P.onG?-Math.abs(Math.round(wa)):0;
+    y+=bob;
+    const loff=Math.round(wa*4);
+    const rSw=Math.round(wa*3);   // 右腕（wa>0=左脚前=右腕前）
+    const lSw=Math.round(-wa*2);  // 左腕（逆位相）
 
     // === ジェットパック（飛行中・背中中央） ===
     if(wingTimer>0){
@@ -943,11 +947,11 @@ function drawMedic(x,y){
         px(cx+2,y+17,2,1);
     }
 
-    // === 左腕（走行L字ポーズ：上腕↓→肘90°→前腕→前） ===
+    // === 左腕（後ろ腕・逆位相スイング） ===
     ctx.fillStyle='#3a6820';
-    px(x+0,y+14,3,5); // 上腕（垂直下）
-    px(x+1,y+18,5,2); // 前腕（水平・前方向）
-    ctx.fillStyle='#c4906a'; px(x+5,y+17,2,3); // 左手（前）
+    px(x+0,y+14,3,5);
+    px(x+1+lSw,y+18,5,2);
+    ctx.fillStyle='#c4906a'; px(x+5+lSw,y+17,2,3);
 
     // === 体（左側面影 + 正面胸部） ===
     ctx.fillStyle='#3a6018'; px(x+3,y+13,2,9);  // 左側面（影・奥行き）
@@ -962,11 +966,11 @@ function drawMedic(x,y){
     ctx.fillStyle='#3a5a18'; px(x+3,y+20,8,2);
     ctx.fillStyle='#ccaa33'; px(cx-0,y+20,2,2);
 
-    // === 右腕（走行L字ポーズ：上腕↓→肘90°→前腕→前） ===
+    // === 右腕（前腕・順位相スイング） ===
     ctx.fillStyle='#4a7828';
-    px(x+9,y+14,3,5); // 上腕（垂直下）
-    px(x+6,y+18,5,2); // 前腕（水平・前方向）
-    ctx.fillStyle='#d4aa66'; px(x+6,y+17,2,3); // 右手（前）
+    px(x+9,y+14,3,5);
+    px(x+6+rSw,y+18,5,2);
+    ctx.fillStyle='#d4aa66'; px(x+10+rSw,y+17,2,3);
 
     // === 顔（丸型・半径6） ===
     ctx.fillStyle='#d4aa66';
@@ -991,15 +995,15 @@ function drawMedic(x,y){
     ctx.fillStyle='#b8906a'; px(cx,y+11,2,1); // 鼻
     ctx.fillStyle='#8a4a28'; px(cx-1,y+12,3,1); // 口
 
-    // === 脚（2本・3/4正面・走行アニメ） ===
-    ctx.fillStyle='#1e1808'; // 左脚（背面・暗め）
+    // === 脚（すね・靴もloffに追従） ===
+    ctx.fillStyle='#1e1808';
     px(cx-4+loff,y+20,4,5);
-    px(cx-4,y+24,4,3);
-    ctx.fillStyle='#0d0d08'; px(cx-5,y+26,6,2); // 左靴
-    ctx.fillStyle='#2a2010'; // 右脚（前面）
+    px(cx-4+loff,y+24,4,3);
+    ctx.fillStyle='#0d0d08'; px(cx-5+loff,y+26,6,2);
+    ctx.fillStyle='#2a2010';
     px(cx-1-loff,y+20,4,5);
-    px(cx-1,y+24,4,3);
-    ctx.fillStyle='#111'; px(cx-1,y+26,6,2); // 右靴
+    px(cx-1-loff,y+24,4,3);
+    ctx.fillStyle='#111'; px(cx-1-loff,y+26,6,2);
 
     if(P.boots){ctx.fillStyle='#ffff00';px(x,y+P.h-2,P.w,2);}
 }
@@ -1007,8 +1011,12 @@ function drawMedic(x,y){
 // ===== ベテラン衛生兵（白髪・白髭・ノーヘルメット・カーキ） =====
 function drawVeteran(x,y){
     const cx=Math.floor(x)+6;
-    const wa=P.onG?Math.sin(P.fr*0.3):0;
-    const loff=Math.round(wa*3);
+    const wa=P.onG?Math.sin(P.fr*0.32):0;
+    const bob=P.onG?-Math.abs(Math.round(wa)):0;
+    y+=bob;
+    const loff=Math.round(wa*4);
+    const rSw=Math.round(wa*3);
+    const lSw=Math.round(-wa*2);
 
     // === ジェットパック ===
     if(wingTimer>0){
@@ -1038,11 +1046,11 @@ function drawVeteran(x,y){
         px(cx+2,y+17,2,1);
     }
 
-    // === 左腕（カーキ） ===
+    // === 左腕（カーキ・逆位相スイング） ===
     ctx.fillStyle='#5a5020';
     px(x+0,y+14,3,5);
-    px(x+1,y+18,5,2);
-    ctx.fillStyle='#c4906a'; px(x+5,y+17,2,3);
+    px(x+1+lSw,y+18,5,2);
+    ctx.fillStyle='#c4906a'; px(x+5+lSw,y+17,2,3);
 
     // === 体（カーキ・砂漠色） ===
     ctx.fillStyle='#5a4820'; px(x+3,y+13,2,9);
@@ -1057,11 +1065,11 @@ function drawVeteran(x,y){
     ctx.fillStyle='#4a3818'; px(x+3,y+20,8,2);
     ctx.fillStyle='#ccaa33'; px(cx-0,y+20,2,2);
 
-    // === 右腕（カーキ） ===
+    // === 右腕（カーキ・順位相スイング） ===
     ctx.fillStyle='#6a5828';
     px(x+9,y+14,3,5);
-    px(x+6,y+18,5,2);
-    ctx.fillStyle='#d4aa66'; px(x+6,y+17,2,3);
+    px(x+6+rSw,y+18,5,2);
+    ctx.fillStyle='#d4aa66'; px(x+10+rSw,y+17,2,3);
 
     // === 顔（日焼け・歴戦の猛者） ===
     ctx.fillStyle='#a87050';
@@ -1097,15 +1105,15 @@ function drawVeteran(x,y){
     px(cx-3,y+11,7,1);
     px(cx-4,y+9,2,1); px(cx+4,y+9,2,1);
 
-    // === 脚（カーキ） ===
+    // === 脚（すね・靴もloffに追従） ===
     ctx.fillStyle='#2a2010';
     px(cx-4+loff,y+20,4,5);
-    px(cx-4,y+24,4,3);
-    ctx.fillStyle='#0d0d08'; px(cx-5,y+26,6,2);
+    px(cx-4+loff,y+24,4,3);
+    ctx.fillStyle='#0d0d08'; px(cx-5+loff,y+26,6,2);
     ctx.fillStyle='#322818';
     px(cx-1-loff,y+20,4,5);
-    px(cx-1,y+24,4,3);
-    ctx.fillStyle='#111'; px(cx-1,y+26,6,2);
+    px(cx-1-loff,y+24,4,3);
+    ctx.fillStyle='#111'; px(cx-1-loff,y+26,6,2);
 
     if(P.boots){ctx.fillStyle='#ffff00';px(x,y+P.h-2,P.w,2);}
 }
