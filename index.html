@@ -58,6 +58,7 @@ let enemies=[], enemyBullets=[]; // 地上敵兵士
 let tanks=[]; // 戦車（ステージ2）
 let clearTimer=0, clearRank='', clearTitle=''; // クリア演出
 let buddy={on:false,hp:0,tmr:0,fr:0,flash:0}; // 仲間兵士
+let notif={txt:'',t:0,col:'#44ff88'}; // 汎用通知（buddy等）
 let dailyChallenge=null; // デイリーチャレンジ
 
 // ===== BGMシステム（Web Audio API 手続き的生成） =====
@@ -183,9 +184,9 @@ function snd(f,d){
 }
 function px(x,y,w,h){ctx.fillRect(Math.floor(x),Math.floor(y),w,h);}
 function txo(s,x,y,c,sz,al){
-    ctx.font=`bold ${sz}px sans-serif`;ctx.textAlign=al||'center';
-    ctx.fillStyle='rgba(0,0,0,.95)';
-    for(const[ox,oy]of[[-2,0],[2,0],[0,-2],[0,2],[-1,-1],[1,-1],[-1,1],[1,1]])
+    ctx.font=`bold ${sz}px 'Courier New',Courier,monospace`;ctx.textAlign=al||'center';
+    ctx.fillStyle='rgba(0,0,0,.97)';
+    for(const[ox,oy]of[[-2,0],[2,0],[0,-2],[0,2],[-1,-2],[1,-2],[-1,2],[1,2],[-2,-1],[2,-1]])
         ctx.fillText(s,x+ox,y+oy);
     ctx.fillStyle=c;ctx.fillText(s,x,y);
 }
@@ -273,7 +274,8 @@ function rst(){
     rushTimer=0; btnFlash=0; adrenPop=0; flyParts=[]; wingTimer=0; jetting=false;
     airThreats=[]; airBullets=[]; airBombs=[]; detected=0;
     enemies=[]; enemyBullets=[]; tanks=[];
-    buddy={on:false,hp:0,tmr:0,fr:0,flash:0}; // バグ修正: ステージ跨ぎで残存しないよう
+    buddy={on:false,hp:0,tmr:0,fr:0,flash:0};
+    notif={txt:'',t:0,col:'#44ff88'};
     clearTimer=0;
 }
 function save(){totR+=rescued;if(score>best)best=score;localStorage.setItem('bf_total',totR);localStorage.setItem('bf_high',best);}
@@ -453,7 +455,7 @@ function update(){
             else if(it.type==='tourn'){P.tourn++; spark(dx+it.w/2,it.sy,'#ff4444',10); snd(600,.12);}
             else if(it.type==='morph'){P.morph++; spark(dx+it.w/2,it.sy,'#cc44ff',10); snd(500,.12);}
             else if(it.type==='jetpack'){wingTimer=WING_DUR; spark(dx+it.w/2,it.sy,'#ff8800',16); snd(880,.4);}
-            else if(it.type==='buddy'){buddy={on:true,hp:3,tmr:540,fr:0,flash:0};spark(dx+it.w/2,it.sy,'#44ff88',16);snd(700,.22);rtxt='増援到着！';ctmr=90;}
+            else if(it.type==='buddy'){buddy={on:true,hp:3,tmr:540,fr:0,flash:0};spark(dx+it.w/2,it.sy,'#44ff88',16);snd(700,.22);notif={txt:'増援到着！',t:90,col:'#44ff88'};}
         }
     });
     inj.forEach(s=>{
@@ -507,6 +509,7 @@ function update(){
 
     parts=parts.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.15;p.l--;return p.l>0;});
     if(rtxt&&--rtxt.t<=0)rtxt=null;
+    if(notif.t>0)notif.t--;
     if(--ctmr<=0)combo=0;
     if(ctxt&&--ctxt.t<=0)ctxt=null;
     shake*=.8;
@@ -660,6 +663,15 @@ function update(){
                 snd(300,.14); flash=Math.max(flash,6);
             }else{
                 b.vy=Math.min(b.vy+.22,7); b.y+=b.vy;
+                // ニアミスエフェクト（落下中にプレイヤーと重なった時）
+                if(P.inv<=0&&!inSmoke()){
+                    const nmx=b.sx-scroll;
+                    if(Math.abs((P.x+P.w/2)-nmx)<9&&b.y>=P.y&&b.y<=P.y+P.h+4){
+                        spark(nmx,b.y,'#ffffff',6);spark(nmx,b.y,'#ffff88',4);
+                        snd(680,.03);shake=Math.max(shake,1);flash=Math.max(flash,3);
+                        b._nm=true; // 1回だけ発火
+                    }
+                }
                 if(b.y>=GY-4){
                     b.phase='explode'; b.life=0;
                     const bsx=b.sx-scroll;
@@ -781,7 +793,7 @@ function update(){
         if(buddy.tmr<=0||buddy.hp<=0){
             buddy.on=false;
             spark(P.x-6,P.y+8,'#888',12);snd(200,.15);
-            rtxt=buddy.hp<=0?'仲間が倒れた…':'増援離脱';ctmr=90;
+            notif=buddy.hp<=0?{txt:'仲間KIA',t:90,col:'#ff4444'}:{txt:'増援離脱',t:90,col:'#ffaa44'};
         }
         // 90F毎に最寄り敵を自動狙撃
         if(buddy.fr%90===0){
@@ -1856,11 +1868,19 @@ function drawUI(){
         ctx.globalAlpha=1;
     }
 
+    // 汎用通知（buddy等）
+    if(notif.t>0){
+        ctx.globalAlpha=Math.min(1,notif.t/20)*(notif.t>10?1:notif.t/10);
+        ctx.fillStyle='rgba(0,0,0,.75)';ctx.fillRect(W/2-38,34,76,14);
+        txo(notif.txt,W/2,45,notif.col,7);
+        ctx.globalAlpha=1;
+    }
+
     // 救助ポップアップ（数字）
     if(rtxt){
         ctx.globalAlpha=rtxt.t/25;
         ctx.fillStyle=rtxt.mul>1?'#ffff00':'#00ff88';
-        ctx.font='bold 7px sans-serif';ctx.textAlign='center';
+        ctx.font=`bold 7px 'Courier New',Courier,monospace`;ctx.textAlign='center';
         ctx.fillText('+'+100*rtxt.mul,rtxt.x,rtxt.y-4);
         ctx.globalAlpha=1;
     }
@@ -1868,7 +1888,7 @@ function drawUI(){
     // コンボ
     if(ctxt&&ctxt.n>1){
         ctx.globalAlpha=ctxt.t/40;
-        ctx.fillStyle='#ffff00';ctx.font='bold 8px sans-serif';ctx.textAlign='center';
+        ctx.fillStyle='#ffff00';ctx.font=`bold 8px 'Courier New',Courier,monospace`;ctx.textAlign='center';
         ctx.fillText('x'+ctxt.n,W/2,46);
         ctx.globalAlpha=1;
     }
@@ -1959,7 +1979,7 @@ function drawOver(){
             txo('RANK',W/2,76,'#777777',7);
             // ランク文字（大字・カスタムサイズ）
             const rfz=Math.floor(46*rs);
-            ctx.font=`bold ${rfz}px sans-serif`;ctx.textAlign='center';
+            ctx.font=`bold ${rfz}px 'Courier New',Courier,monospace`;ctx.textAlign='center';
             ctx.fillStyle='rgba(0,0,0,.92)';
             for(const[ox,oy]of[[-3,0],[3,0],[0,-3],[0,3],[-2,-2],[2,-2],[-2,2],[2,2]])
                 ctx.fillText(clearRank,W/2+ox,112+oy);
@@ -2240,9 +2260,9 @@ function draw(){
         ctx.globalAlpha=fade;
         ctx.fillStyle='#000'; ctx.fillRect(W/2-54,H/2-22,108,38);
         ctx.strokeStyle='#ffdd00'; ctx.lineWidth=2; ctx.strokeRect(W/2-54,H/2-22,108,38);
-        ctx.fillStyle='#ffff00'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center';
+        ctx.fillStyle='#ffff00'; ctx.font=`bold 9px 'Courier New',Courier,monospace`; ctx.textAlign='center';
         ctx.fillText('ADRENALINE',W/2,H/2-6);
-        ctx.fillStyle='#ff8800'; ctx.font='bold 7px sans-serif';
+        ctx.fillStyle='#ff8800'; ctx.font=`bold 7px 'Courier New',Courier,monospace`;
         ctx.fillText('RUSH!',W/2,H/2+10);
         ctx.globalAlpha=1;
     }
