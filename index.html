@@ -1054,28 +1054,28 @@ function drawVeteran(x,y){
         px(cx+2,y+17,2,1);
     }
 
-    // === 左腕（カーキ・逆位相スイング） ===
+    // === 左腕（カーキ・太め・逆位相スイング） ===
     ctx.fillStyle='#5a5020';
-    px(x+0,y+14,3,5);
-    px(x+1+lSw,y+18,5,2);
-    ctx.fillStyle='#c4906a'; px(x+5+lSw,y+17,2,3);
+    px(x-1,y+13,4,6);
+    px(x+0+lSw,y+18,5,2);
+    ctx.fillStyle='#c4906a'; px(x+4+lSw,y+17,2,3);
 
-    // === 体（カーキ） ===
-    ctx.fillStyle='#5a4820'; px(x+3,y+13,2,9);
-    ctx.fillStyle='#7a6430'; px(x+5,y+13,6,9);
+    // === 体（幅広・ガタイ良） ===
+    ctx.fillStyle='#4a3818'; px(x+2,y+13,3,9);
+    ctx.fillStyle='#7a6430'; px(x+5,y+13,8,9);
 
     // === 胸の赤十字 ===
     ctx.fillStyle='#ee1111';
-    px(cx-0,y+14,2,5);
-    px(cx-2,y+16,5,2);
+    px(cx+0,y+14,2,5);
+    px(cx-2,y+16,6,2);
 
     // === ベルト ===
-    ctx.fillStyle='#4a3818'; px(x+3,y+20,8,2);
-    ctx.fillStyle='#ccaa33'; px(cx-0,y+20,2,2);
+    ctx.fillStyle='#4a3818'; px(x+2,y+20,10,2);
+    ctx.fillStyle='#ccaa33'; px(cx+0,y+20,2,2);
 
-    // === 右腕（カーキ・順位相スイング） ===
+    // === 右腕（カーキ・太め・順位相スイング） ===
     ctx.fillStyle='#6a5828';
-    px(x+9,y+14,3,5);
+    px(x+10,y+13,4,6);
     px(x+6+rSw,y+18,5,2);
     ctx.fillStyle='#d4aa66'; px(x+10+rSw,y+17,2,3);
 
