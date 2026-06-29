@@ -1590,30 +1590,68 @@ function drawAirThreats(){
         }
     });
 
-    // ─── 爆撃機本体 ───
+    // ─── 爆撃機本体（軍用爆撃機シルエット）───
     airThreats.forEach(a=>{
         if(a.type!=='bomber')return;
         const {x,y,dir}=a;
         if(x<-130||x>W+130)return;
-        const bw=42,bh=7;
-        // 主翼（細長い）
-        ctx.fillStyle='#5a6830'; px(x-bw/2-14,y+3,bw+28,3);
-        // 胴体
-        ctx.fillStyle='#6a7838'; px(x-bw/2,y,bw,bh);
-        ctx.fillStyle='#4a5828'; px(x-bw/2,y,bw,2);
-        ctx.fillStyle='#7a8848'; px(x-bw/2,y+2,bw,2);
-        // 機首
-        const nx=dir<0?x+bw/2:x-bw/2-4;
-        ctx.fillStyle='#3a4820'; px(nx,y+2,4,3);
-        // 尾翼
-        ctx.fillStyle='#5a6830'; px(dir<0?x-bw/2-2:x+bw/2-2,y-4,4,10);
-        // エンジン4基
-        ctx.fillStyle='#2a2a2a';
-        [-16,-6,5,15].forEach(ox=>{px(x+ox,y+4,6,5);});
-        if(Math.floor(t/3)%2){
-            ctx.fillStyle='#ff6600';
-            [-16,-6,5,15].forEach(ox=>{px(x+ox+(dir<0?0:5),y+7,3,2);});
+        const fl=Math.floor(t/3)%2;
+        // dir<0=左飛行(機首左)  dir>0=右飛行(機首右)
+
+        // ── 垂直尾翼（胴体後端から上方）──
+        const finX=dir<0?x+17:x-21;
+        ctx.fillStyle='#4a5828'; px(finX,y-8,5,10);
+        ctx.fillStyle='#5a6838'; px(finX+1,y-8,3,3);
+
+        // ── 水平尾翼（後端の横翼）──
+        const hstabX=dir<0?x+10:x-30;
+        ctx.fillStyle='#4a5828'; px(hstabX,y+3,20,3);
+        ctx.fillStyle='#5a6838'; px(hstabX+2,y+3,16,1);
+
+        // ── 主翼（5px厚・台形・一目でわかる形状）──
+        ctx.fillStyle='#3a4820'; px(x-28,y+5,56,1); // 翼端（最細）
+        ctx.fillStyle='#4a5828'; px(x-22,y+4,44,2); // 翼外側
+        ctx.fillStyle='#5a6838'; px(x-15,y+3,30,3); // 翼体
+        ctx.fillStyle='#6a7848'; px(x-8, y+3,16,3); // 翼根（胴体際・最太）
+
+        // ── 胴体 ──
+        ctx.fillStyle='#6a7838'; px(x-20,y,40,9);
+        ctx.fillStyle='#4a5828'; px(x-20,y,40,2);
+        ctx.fillStyle='#7a8848'; px(x-20,y+2,40,2);
+        ctx.fillStyle='#5a6830'; px(x-20,y+7,40,1);
+
+        // ── 機首（三段テーパー・先細り）──
+        if(dir<0){
+            ctx.fillStyle='#5a6830'; px(x-24,y+1,4,7);
+            ctx.fillStyle='#3a4820'; px(x-28,y+2,4,5);
+            ctx.fillStyle='#2a3018'; px(x-32,y+3,4,3);
+        }else{
+            ctx.fillStyle='#5a6830'; px(x+20,y+1,4,7);
+            ctx.fillStyle='#3a4820'; px(x+24,y+2,4,5);
+            ctx.fillStyle='#2a3018'; px(x+28,y+3,4,3);
         }
+
+        // ── コクピット（機首寄りのキャノピー）──
+        const cabX=dir<0?x-18:x+10;
+        ctx.fillStyle='#1a2850'; px(cabX,y+1,8,5);
+        ctx.fillStyle='rgba(80,140,220,.45)'; px(cabX+1,y+1,6,3);
+        ctx.fillStyle='rgba(200,240,255,.22)'; px(cabX+1,y+1,3,1);
+
+        // ── エンジンナセル（2基・翼下）──
+        [-11,3].forEach(ox=>{
+            ctx.fillStyle='#222'; px(x+ox,y+8,10,5);
+            ctx.fillStyle='#333'; px(x+ox,y+8,10,2);
+            ctx.fillStyle='#111'; px(x+ox,y+11,10,2);
+            if(dir<0){
+                ctx.fillStyle='#0a0a0a'; px(x+ox,y+9,2,3);              // 吸気口（前=左）
+                ctx.fillStyle=fl?'#ff7700':'#ff4400'; px(x+ox+7,y+9,4,3); // 噴射炎（後=右）
+                if(fl){ctx.globalAlpha=.5;ctx.fillStyle='#ffff44';px(x+ox+8,y+11,5,2);ctx.globalAlpha=1;}
+            }else{
+                ctx.fillStyle='#0a0a0a'; px(x+ox+8,y+9,2,3);            // 吸気口（前=右）
+                ctx.fillStyle=fl?'#ff7700':'#ff4400'; px(x+ox-1,y+9,4,3); // 噴射炎（後=左）
+                if(fl){ctx.globalAlpha=.5;ctx.fillStyle='#ffff44';px(x+ox-2,y+11,5,2);ctx.globalAlpha=1;}
+            }
+        });
     });
 
     // ─── 機銃弾 ───
@@ -2233,6 +2271,10 @@ function draw(){
         if(it.got)return;
         const dx=it.sx-scroll;if(dx<-10||dx>W+10)return;
         const blink=Math.floor(t/8)%2===0;
+        // 1.5倍スケール（アイテム中心基準・描画コード変更なし）
+        const icx=dx+4,icy=it.sy+4;
+        ctx.save();
+        ctx.translate(icx,icy);ctx.scale(1.5,1.5);ctx.translate(-icx,-icy);
         if(it.type==='boots'){
             // 軍用ブーツ（サイドシルエット：L字型 シャフト+つま先+ソール）
             const by=it.sy;
@@ -2318,6 +2360,7 @@ function draw(){
             ctx.globalAlpha=1;
             if(blink){ctx.fillStyle='#88ff88';px(dx+3,fy-8,2,2);}
         }
+        ctx.restore(); // 1.5倍スケール解除
     });
 
     drawObs();
