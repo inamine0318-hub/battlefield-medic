@@ -313,7 +313,7 @@ function update(){
     if(gs==='stageclear'){clearTimer++;return;}
     if(gs!=='playing')return;
     // 速度：ステージ別ベース＋距離に応じて後半30%増し
-    spd=(1.35+(stage-1)*.28)*(1+Math.min(.3,scroll/heliP*.4));
+    spd=(1.7+(stage-1)*.28)*(1+Math.min(.5,scroll/heliP*.6));
     t++; P.fr++; scroll+=spd;
     if(wingTimer>0){
         wingTimer--;
@@ -615,13 +615,13 @@ function update(){
                 }
             }else if(a.phase==='attack'){
                 if(a.atk===0){
-                    // Pattern A: カーペット爆撃（5発・順次投下）
-                    if(a.ptimer%52===1&&a.dropped<5){
+                    // Pattern A: カーペット爆撃（5発・間隔開けて順次投下）
+                    if(a.ptimer%70===1&&a.dropped<5){
                         airBombs.push({sx:a.x+scroll,y:a.y+8,vy:0.4,phase:'fall',life:0,maxLife:80,mtype:'carpet'});
                         a.dropped++; snd(180,.08);
                         spark(a.x,a.y+8,'#888',5);
                     }
-                    if(a.dropped>=5&&a.ptimer>200){a.phase='leave';a.sp=0.5;}
+                    if(a.dropped>=5&&a.ptimer>330){a.phase='leave';a.sp=0.5;}
                 }else if(a.atk===1){
                     // Pattern B: 誘導ミサイル（1発・落下→水平誘導）
                     if(!a.dropped){
