@@ -313,7 +313,7 @@ function update(){
     if(gs==='stageclear'){clearTimer++;return;}
     if(gs!=='playing')return;
     // 速度：ステージ別ベース＋距離に応じて後半30%増し
-    spd=(1.7+(stage-1)*.28)*(1+Math.min(.5,scroll/heliP*.6));
+    spd=(1.7+(stage-1)*.28)*(1+Math.min(.3,scroll/heliP*.4));
     t++; P.fr++; scroll+=spd;
     if(wingTimer>0){
         wingTimer--;
