@@ -566,8 +566,12 @@ function update(){
                 if(!localStorage.getItem('bf_nade')){localStorage.setItem('bf_nade','1');notif={txt:'右下ボタンで煙幕発動！',t:130,col:'#44ff88'};}
                 else notif={txt:'グレネード ×'+P.grenade,t:90,col:'#44ff88'};}
             else if(it.type==='heart'){P.hp=Math.min(P.mhp,P.hp+1); spark(dx+it.w/2,it.sy,'#ff4488',12); snd(740,.2);notif={txt:'回復！ HP+1',t:90,col:'#ff4488'};}
-            else if(it.type==='tourn'){P.tourn++; spark(dx+it.w/2,it.sy,'#ff4444',10); snd(600,.12);notif={txt:'止血帯 ×'+P.tourn,t:90,col:'#ff4444'};}
-            else if(it.type==='morph'){P.morph++; spark(dx+it.w/2,it.sy,'#cc44ff',10); snd(500,.12);notif={txt:'モルヒネ ×'+P.morph,t:90,col:'#cc44ff'};}
+            else if(it.type==='tourn'){
+                if(P.tourn>=3){notif={txt:'止血帯は満杯！ MAX3',t:90,col:'#ff4444'};}
+                else{P.tourn++;spark(dx+it.w/2,it.sy,'#ff4444',10);snd(600,.12);notif={txt:'止血帯 ×'+P.tourn,t:90,col:'#ff4444'};}}
+            else if(it.type==='morph'){
+                if(P.morph>=3){notif={txt:'モルヒネは満杯！ MAX3',t:90,col:'#cc44ff'};}
+                else{P.morph++;spark(dx+it.w/2,it.sy,'#cc44ff',10);snd(500,.12);notif={txt:'モルヒネ ×'+P.morph,t:90,col:'#cc44ff'};}}
             else if(it.type==='jetpack'){wingTimer=WING_DUR; spark(dx+it.w/2,it.sy,'#ff8800',16); snd(880,.4);notif={txt:'ジェットパック！',t:90,col:'#ff8800'};}
             else if(it.type==='buddy'){buddy={on:true,hp:3,tmr:540,fr:0,flash:0};spark(dx+it.w/2,it.sy,'#44ff88',16);snd(700,.22);notif={txt:'増援到着！',t:90,col:'#44ff88'};}
         }
@@ -2297,6 +2301,8 @@ function drawTutorial(){
         txo('→ モルヒネが必要',W/2+14,137,'#cc44ff',8,'left');
         txo('アイコンが赤点滅 →',W/2,168,'#ffff44',7);
         txo('持っていないサイン！',W/2,181,'#ffff44',7);
+        txo('各アイテム 最大3個まで所持可能',W/2,202,'#ffffff',6.5);
+        txo('右端に次の負傷兵の予告が出るよ',W/2,217,'#44ffaa',6.5);
     } else {
         // 煙幕グレネードの説明
         txo('右下ボタンで',W/2,82,'#ffffff',9);
@@ -2657,6 +2663,21 @@ function draw(){
         ctx.lineTo(W-9,wy+5);
         ctx.closePath();ctx.fill();
     });
+
+    // 右端：次の負傷兵（bleed/shock）プレビュー
+    const _nxt=inj.filter(s=>!s.res&&s.type!=='normal'&&s.sx>scroll+W).sort((a,b)=>a.sx-b.sx)[0];
+    if(_nxt){
+        const py=H/2-8;
+        ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(W-22,py-4,22,26);
+        if(_nxt.type==='bleed'){
+            ctx.fillStyle=P.tourn>0?'#44ff44':'#ff3333';
+            px(W-14,py+1,2,8);px(W-17,py+3,8,2);
+        }else{
+            ctx.fillStyle=P.morph>0?'#aa88ff':'#dd33ff';
+            px(W-14,py,2,10);px(W-15,py-1,4,2);px(W-14,py+9,2,2);
+        }
+        txo('次',W-11,py+22,'#ffffff',4.5,'center');
+    }
 
     inj.forEach(s=>{
         const dx=s.sx-scroll;
