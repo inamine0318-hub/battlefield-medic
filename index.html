@@ -313,6 +313,8 @@ function canvasCoords(clientX,clientY){
 function inp(cx,cy){
     if(cx!==undefined&&hitBtn(cx,cy)){activateSmoke();return;}
     if(gs==='start'){
+        // 遊び方ボタン判定
+        if(cx>=W/2-30&&cx<=W/2+30&&cy>=H-26&&cy<=H-10){tutPage=0;gs='tutorial';return;}
         // キャラ選択パネルタップ判定
         const panelY=90, panelH=88;
         if(cy>=panelY&&cy<=panelY+panelH){
@@ -328,6 +330,7 @@ function inp(cx,cy){
         if(tutPage>=4){localStorage.setItem('bf_tutor','1');stage=1;rst();startBgm(1);}
         return;
     }
+
     if(gs==='stageclear'){
         if(clearTimer>70){
             if(stage<3){stage++;rst();startBgm(stage);}
@@ -2389,7 +2392,11 @@ function drawOver(){
 
         // ── スタート ──
         txo('[ タップでスタート ]',W/2,195,'#44ff44',8);
-        if(best>0)txo('ベスト:'+best+'pt  合計:'+totR,W/2,212,'#ffff44',7);
+        if(best>0)txo('ベスト:'+best+'pt  合計:'+totR,W/2,209,'#ffff44',7);
+        // 遊び方ボタン
+        ctx.fillStyle='rgba(0,40,0,.7)';ctx.fillRect(W/2-30,H-26,60,16);
+        ctx.strokeStyle='#336633';ctx.lineWidth=1;ctx.strokeRect(W/2-30,H-26,60,16);
+        txo('？ 遊び方',W/2,H-13,'#88cc88',6.5);
 
     }else if(gs==='gameover'){
         // X マーク
