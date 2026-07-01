@@ -318,6 +318,7 @@ function update(){
     gTick++;
     if(gs==='stageclear'){clearTimer++;return;}
     if(gs!=='playing')return;
+    const _vest=P.vest; // ベスト破壊検知用
     // 速度：ステージ別ベース＋距離に応じて後半30%増し
     spd=(1.35+(stage-1)*.28)*(1+Math.min(.3,scroll/heliP*.4));
     t++; P.fr++; scroll+=spd;
@@ -470,7 +471,9 @@ function update(){
             it.got=true;
             if(it.type==='boots'){P.boots=true; spark(dx+it.w/2,it.sy,'#ffff00',8); snd(660,.12);notif={txt:'ブーツ 装備！',t:90,col:'#ffdd00'};}
             else if(it.type==='vest'){P.vest=true; spark(dx+it.w/2,it.sy,'#4488ff',10); snd(550,.15);notif={txt:'防弾ベスト 装備！',t:90,col:'#4488ee'};}
-            else if(it.type==='grenade'){P.grenade=Math.min(CHARS[selectedChar].grenade,P.grenade+1); spark(dx+it.w/2,it.sy,'#aaffaa',10); snd(440,.15);notif={txt:'グレネード ×'+P.grenade,t:90,col:'#44ff88'};}
+            else if(it.type==='grenade'){P.grenade=Math.min(CHARS[selectedChar].grenade,P.grenade+1); spark(dx+it.w/2,it.sy,'#aaffaa',10); snd(440,.15);
+                if(!localStorage.getItem('bf_nade')){localStorage.setItem('bf_nade','1');notif={txt:'右下ボタンで煙幕発動！',t:130,col:'#44ff88'};}
+                else notif={txt:'グレネード ×'+P.grenade,t:90,col:'#44ff88'};}
             else if(it.type==='heart'){P.hp=Math.min(P.mhp,P.hp+1); spark(dx+it.w/2,it.sy,'#ff4488',12); snd(740,.2);notif={txt:'回復！ HP+1',t:90,col:'#ff4488'};}
             else if(it.type==='tourn'){P.tourn++; spark(dx+it.w/2,it.sy,'#ff4444',10); snd(600,.12);notif={txt:'止血帯 ×'+P.tourn,t:90,col:'#ff4444'};}
             else if(it.type==='morph'){P.morph++; spark(dx+it.w/2,it.sy,'#cc44ff',10); snd(500,.12);notif={txt:'モルヒネ ×'+P.morph,t:90,col:'#cc44ff'};}
@@ -509,6 +512,7 @@ function update(){
             P.morph--;
             // 無敵ラン発動
             rushTimer=RUSH_DUR; adrenPop=90; snd(880,.5);
+            notif={txt:'アドレナリン！ 無敵ラン発動！',t:110,col:'#ffaa00'};
         }
     });
 
@@ -531,6 +535,7 @@ function update(){
     if(rtxt&&--rtxt.t<=0)rtxt=null;
     if(notif.t>0)notif.t--;
     if(voice.t>0)voice.t--;
+    if(_vest&&!P.vest)notif={txt:'ベストが守ってくれた！',t:90,col:'#4488ee'};
     if(--ctmr<=0)combo=0;
     if(ctxt&&--ctxt.t<=0)ctxt=null;
     shake*=.8;
@@ -1876,7 +1881,7 @@ function drawStar(cx,cy,r){
 
 // ===== アイテムスロット（横一列）=====
 function drawItemSlots(){
-    const has=P.boots||P.vest||P.grenade||P.tourn>0||P.morph>0||rushTimer>0||wingTimer>0;
+    const has=P.boots||P.vest||P.grenade||P.tourn>0||P.morph>0||rushTimer>0||wingTimer>0||smokeAura>0;
     if(!has)return;
     // 左下固定（地面より下のデッドゾーン・右下ボタンと干渉しない）
     let sx=3;
@@ -1885,7 +1890,7 @@ function drawItemSlots(){
     let cnt=0;
     if(P.boots)cnt++;if(P.vest)cnt++;if(P.grenade)cnt++;
     if(P.tourn>0)cnt+=(P.tourn>1?1.5:1);if(P.morph>0)cnt+=(P.morph>1?1.5:1);
-    if(rushTimer>0)cnt++;if(wingTimer>0)cnt++;
+    if(rushTimer>0)cnt++;if(wingTimer>0)cnt++;if(smokeAura>0)cnt++;
     const barW=Math.ceil(cnt*(sw+sg))+4;
     ctx.fillStyle='rgba(0,0,0,.80)'; ctx.fillRect(0,sy-2,barW,sh+16);
     ctx.strokeStyle='#333'; ctx.lineWidth=1; ctx.strokeRect(0,sy-2,barW,sh+16);
@@ -1956,6 +1961,21 @@ function drawItemSlots(){
         ctx.fillStyle='#333'; px(sx,sy+sh,sw,2);
         ctx.fillStyle=`hsl(45,100%,${55+wp*15|0}%)`; px(sx,sy+sh,Math.floor(sw*wp),2);
         txo('飛行',sx+sw/2,lsy,'#88aa88',4);
+        next();
+    }
+    if(smokeAura>0){
+        slotBG(sx);
+        // 煙のドット絵
+        const sf=Math.floor(t/6)%2;
+        ctx.fillStyle=sf?'#66bb66':'#44aa44';
+        px(sx+1,sy+1,8,3); px(sx,sy+3,10,3); px(sx+1,sy+5,8,2);
+        ctx.fillStyle='rgba(180,255,180,.5)';
+        px(sx+2,sy+2,6,5);
+        // 残り時間バー
+        const sp=smokeAura/SMOKE_DUR;
+        ctx.fillStyle='#333'; px(sx,sy+sh,sw,2);
+        ctx.fillStyle=`hsl(130,80%,${45+sp*15|0}%)`; px(sx,sy+sh,Math.floor(sw*sp),2);
+        txo('煙幕中',sx+sw/2,lsy,'#44ff88',4);
         next();
     }
 }
@@ -2198,10 +2218,11 @@ function drawOver(){
             P.onG=_onG; P.fr=_fr; P.boots=_boots;
             ctx.restore();
         }
-        txo('衛生兵',6+39,90+45,'#ccffcc',7);
-        txo('HP ♥♥♥♥♥',6+39,90+57,'#ff4466',6);
-        txo('グレネ×2',6+39,90+68,'#aaffaa',6);
-        txo('ジャンプ: 標準',6+39,90+79,'#aaaaaa',6);
+        txo('衛生兵',6+39,90+44,'#ccffcc',7);
+        txo('HP ♥♥♥♥♥',6+39,90+55,'#ff4466',6);
+        txo('煙幕グレネ×2',6+39,90+65,'#aaffaa',6);
+        txo('ジャンプ: 標準',6+39,90+75,'#aaaaaa',5.5);
+        txo('初心者向け',6+39,90+84,'#888888',5);
 
         // Panel 2: ベテラン衛生兵（x=96, w=78）
         charPanel(96,90,78,88,1);
@@ -2214,10 +2235,11 @@ function drawOver(){
             P.onG=_onG; P.fr=_fr; P.boots=_boots;
             ctx.restore();
         }
-        txo('ベテラン',96+39,90+45,'#ffe8aa',7);
-        txo('HP ♥♥♥♥',96+39,90+57,'#ff4466',6);
-        txo('グレネ×1',96+39,90+68,'#ffaa44',6);
-        txo('蘇生:1回',96+39,90+79,'#44ffaa',6);
+        txo('ベテラン',96+39,90+44,'#ffe8aa',7);
+        txo('HP ♥♥♥♥',96+39,90+55,'#ff4466',6);
+        txo('煙幕グレネ×1',96+39,90+65,'#ffaa44',6);
+        txo('自己蘇生: 1回',96+39,90+75,'#44ffaa',5.5);
+        txo('上級者向け',96+39,90+84,'#888888',5);
 
         // ── スタート ──
         txo('[ タップでスタート ]',W/2,195,'#44ff44',8);
