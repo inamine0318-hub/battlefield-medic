@@ -67,6 +67,7 @@ const RUSH_DUR=240, GOALS=[2,3,5];
 let airThreats=[], airBullets=[], airBombs=[], detected=0; // 航空脅威システム
 let enemies=[], enemyBullets=[]; // 地上敵兵士
 let tanks=[]; // 戦車（ステージ2）
+let drops=[], mines=[]; // 補給ドロップ・地雷
 let clearTimer=0, clearRank='', clearTitle=''; // クリア演出
 let buddy={on:false,hp:0,tmr:0,fr:0,flash:0}; // 仲間兵士
 let notif={txt:'',t:0,col:'#44ff88'}; // 汎用通知（buddy等）
@@ -384,7 +385,7 @@ function rst(){
     safeZ=heliP-900; smokeAura=0; smokeCloud=[]; pending=[]; mortars=[];
     rushTimer=0; btnFlash=0; adrenPop=0; flyParts=[]; wingTimer=0; jetting=false;
     airThreats=[]; airBullets=[]; airBombs=[]; detected=0;
-    enemies=[]; enemyBullets=[]; tanks=[];
+    enemies=[]; enemyBullets=[]; tanks=[]; drops=[]; mines=[];
     buddy={on:false,hp:0,tmr:0,fr:0,flash:0};
     notif={txt:'',t:0,col:'#44ff88'};
     clearTimer=0;
@@ -410,8 +411,9 @@ function update(){
     if(gs==='stageclear'){clearTimer++;return;}
     if(gs!=='playing')return;
     const _vest=P.vest; // ベスト破壊検知用
-    // 速度：ステージ別ベース＋距離に応じて後半30%増し
-    spd=(1.35+(stage-1)*.28)*(1+Math.min(.3,scroll/heliP*.4));
+    // 速度：ステージ別ベース＋距離増し＋コンボボーナス
+    const _cspd=combo>=7?.3:combo>=5?.2:combo>=3?.1:0;
+    spd=(1.35+(stage-1)*.28)*(1+Math.min(.3,scroll/heliP*.4))*(1+_cspd);
     t++; P.fr++; scroll+=spd;
     if(wingTimer>0){
         wingTimer--;
@@ -473,6 +475,16 @@ function update(){
         if(t%280===0&&Math.random()<.48 &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'morph'});
         if(t%500===0&&Math.random()<.3  &&canSpawn(gx)) items.push({sx:gx,sy:GY-18,w:8,h:7,got:false,type:'jetpack'});
         if(t%420===0&&Math.random()<.32 &&stage>=2&&!buddy.on&&canSpawn(gx)) items.push({sx:gx,sy:GY-14,w:10,h:10,got:false,type:'buddy'});
+        // 補給ドロップ（空から落下）
+        if(t%480===0&&Math.random()<.7){
+            const _dt=['tourn','morph','heart'][Math.floor(Math.random()*3)];
+            drops.push({sx:scroll+W*0.3+Math.random()*W*0.4,sy:-12,vy:0.6,got:false,type:_dt});
+        }
+        // 地雷（ステージ2以降）
+        if(stage>=2&&t%200===0&&Math.random()<.55&&canSpawn(gx))
+            mines.push({sx:gx,sy:GY-5,w:8,h:5,hit:false});
+        if(stage>=2&&t%200===0&&Math.random()<.4&&canSpawn(gx+20))
+            mines.push({sx:gx+20,sy:GY-5,w:8,h:5,hit:false});
         // 地上敵兵士（全ステージ・難易度に応じて頻度上昇）
         const ef=1+(scroll/heliP)*.6;
         if(t%Math.max(160,Math.floor(290/ef))===0&&Math.random()<.55&&canSpawn(gx)){
@@ -576,6 +588,38 @@ function update(){
             else if(it.type==='buddy'){buddy={on:true,hp:3,tmr:540,fr:0,flash:0};spark(dx+it.w/2,it.sy,'#44ff88',16);snd(700,.22);notif={txt:'増援到着！',t:90,col:'#44ff88'};}
         }
     });
+    // 補給ドロップ更新
+    drops.forEach(d=>{
+        if(d.got)return;
+        d.vy=Math.min(1.6,d.vy+0.035);d.sy+=d.vy;
+        if(d.sy>=GY-8)d.vy=0; // 地面で止まる
+        const dx=d.sx-scroll;
+        if(!d.got&&P.x<dx+8&&P.x+P.w>dx&&P.y<d.sy+8&&P.y+P.h>d.sy){
+            d.got=true;spark(dx+4,d.sy,'#ffffff',10);snd(660,.18);
+            if(d.type==='tourn'){
+                if(P.tourn>=3)notif={txt:'止血帯は満杯！ MAX3',t:90,col:'#ff4444'};
+                else{P.tourn++;notif={txt:'補給！止血帯 ×'+P.tourn,t:90,col:'#ff4444'};}}
+            else if(d.type==='morph'){
+                if(P.morph>=3)notif={txt:'モルヒネは満杯！ MAX3',t:90,col:'#cc44ff'};
+                else{P.morph++;notif={txt:'補給！モルヒネ ×'+P.morph,t:90,col:'#cc44ff'};}}
+            else{P.hp=Math.min(P.mhp,P.hp+1);notif={txt:'補給！ HP+1',t:90,col:'#ff4488'};}
+        }
+    });
+    drops=drops.filter(d=>!d.got&&d.sy<H+30);
+    // 地雷判定（ジャンプ中はセーフ）
+    if(!inSmoke()&&rushTimer<=0)mines.forEach(m=>{
+        if(m.hit||P.inv>0)return;
+        const dx=m.sx-scroll;
+        if(P.onG&&P.x<dx+m.w&&P.x+P.w>dx&&P.y<m.sy+m.h&&P.y+P.h>m.sy){
+            m.hit=true;
+            if(P.vest){P.vest=false;}
+            else{P.hp--;P.inv=30;shake=6;flash=15;spark(dx+4,m.sy,'#ff6600',10);sfx('hit');dmg++;
+                if(!localStorage.getItem('bf_mine')){localStorage.setItem('bf_mine','1');notif={txt:'地雷！ジャンプで回避！',t:140,col:'#ff8800'};}
+                else notif={txt:'地雷！',t:60,col:'#ff8800'};}
+            snd(260,.18);
+        }
+    });
+    mines=mines.filter(m=>!m.hit&&m.sx-scroll>-40);
     inj.forEach(s=>{
         if(s.res)return;
         const dx=s.sx-scroll;
@@ -2615,6 +2659,31 @@ function draw(){
         ctx.restore(); // 1.5倍スケール解除
     });
 
+    // 地雷描画
+    mines.forEach(m=>{
+        if(m.hit)return;
+        const dx=m.sx-scroll;
+        if(dx<-20||dx>W+20)return;
+        ctx.fillStyle='#333';ctx.beginPath();ctx.arc(dx+4,m.sy+2,4,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#cc2200';ctx.beginPath();ctx.arc(dx+4,m.sy+1,3,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#888';px(dx+3,m.sy-3,2,3); // 信管
+    });
+    // 補給ドロップ描画
+    drops.forEach(d=>{
+        if(d.got)return;
+        const dx=d.sx-scroll;
+        if(dx<-20||dx>W+20)return;
+        if(d.sy<GY-8){ // 落下中はパラシュート
+            ctx.fillStyle='rgba(240,235,180,0.85)';
+            ctx.beginPath();ctx.arc(dx+4,d.sy-10,9,Math.PI,0);ctx.fill();
+            ctx.strokeStyle='rgba(200,190,130,0.7)';ctx.lineWidth=0.5;
+            ctx.beginPath();ctx.moveTo(dx-5,d.sy-10);ctx.lineTo(dx+1,d.sy);ctx.stroke();
+            ctx.beginPath();ctx.moveTo(dx+13,d.sy-10);ctx.lineTo(dx+7,d.sy);ctx.stroke();
+        }
+        ctx.fillStyle='#7a5c1a';px(dx,d.sy,8,7);
+        const ic=d.type==='tourn'?'#ff4444':d.type==='morph'?'#cc44ff':'#ff4488';
+        ctx.fillStyle=ic;px(dx+2,d.sy+1,4,5);
+    });
     drawObs();
     drawTanks();
     drawEnemies();
