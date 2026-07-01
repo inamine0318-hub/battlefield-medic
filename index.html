@@ -175,16 +175,24 @@ function computeRank(){
     return['C','任務遂行'];
 }
 
-let _ac=null;
-function getAC(){try{if(!_ac||_ac.state==='closed')_ac=new(AudioContext||webkitAudioContext)();if(_ac.state==='suspended')_ac.resume();return _ac;}catch(e){return null;}}
+let _ac=null, _sfxGain=null;
+function getAC(){
+    try{
+        if(!_ac||_ac.state==='closed'){_ac=new(AudioContext||webkitAudioContext)();_sfxGain=null;}
+        if(_ac.state==='suspended')_ac.resume();
+        if(!_sfxGain){_sfxGain=_ac.createGain();_sfxGain.gain.value=0.42;_sfxGain.connect(_ac.destination);}
+        return _ac;
+    }catch(e){return null;}
+}
+function getSfxDst(){return _sfxGain||(_ac&&_ac.destination)||null;}
 
 function snd(f,d){
-    const ac=getAC();if(!ac)return;
+    const ac=getAC();const dst=getSfxDst();if(!ac||!dst)return;
     try{
         const af=(P.hp===1||rushTimer>0)?f*1.25:f;
         const now=ac.currentTime;
         const o=ac.createOscillator(),g=ac.createGain();
-        o.connect(g);g.connect(ac.destination);
+        o.connect(g);g.connect(dst);
         o.frequency.value=af;
         g.gain.setValueAtTime(.1,now);g.gain.exponentialRampToValueAtTime(.001,now+d);
         o.start(now);o.stop(now+d);
@@ -196,9 +204,9 @@ function mkNoise(ac,dur){
 }
 
 function sfx(type){
-    const ac=getAC();if(!ac)return;
+    const ac=getAC();const dst=getSfxDst();if(!ac||!dst)return;
     try{
-        const now=ac.currentTime, dst=ac.destination;
+        const now=ac.currentTime;
         if(type==='explode_big'||type==='explode_small'){
             const vol=type==='explode_big'?1:.6;
             const nb=mkNoise(ac,.5);if(!nb)return;
