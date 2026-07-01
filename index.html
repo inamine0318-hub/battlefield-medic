@@ -859,21 +859,52 @@ function update(){
 
 // ===== 背景 =====
 function drawBg(){
-    // 空グラデーション
+    // ===== 空グラデーション =====
     const sg=ctx.createLinearGradient(0,0,0,GY);
-    if(stage===1){sg.addColorStop(0,'#0a0a1e');sg.addColorStop(.7,'#1a1a35');sg.addColorStop(1,'#2a1808');}
-    else if(stage===2){sg.addColorStop(0,'#080810');sg.addColorStop(.6,'#0e0e1e');sg.addColorStop(1,'#1e0e0e');}
-    else{sg.addColorStop(0,'#88bbdd');sg.addColorStop(.5,'#f0c060');sg.addColorStop(1,'#e07030');}
+    if(stage===1){
+        // 深夜：深い藍色
+        sg.addColorStop(0,'#010112');
+        sg.addColorStop(.65,'#07082a');
+        sg.addColorStop(1,'#10080a');
+    }else if(stage===2){
+        // 夜明け前：地平線だけわずかに琥珀色
+        sg.addColorStop(0,'#03030e');
+        sg.addColorStop(.55,'#09091a');
+        sg.addColorStop(.85,'#18100c');
+        sg.addColorStop(1,'#28160a');
+    }else{
+        // 明け方：紫〜暗いオレンジ（炎の光で染まる空）
+        sg.addColorStop(0,'#14061c');
+        sg.addColorStop(.38,'#28100e');
+        sg.addColorStop(.72,'#50220c');
+        sg.addColorStop(1,'#7e3a10');
+    }
     ctx.fillStyle=sg; ctx.fillRect(0,0,W,GY);
 
-    // 地平線グロー
-    const hg=ctx.createLinearGradient(0,GY-30,0,GY);
-    hg.addColorStop(0,'rgba(0,0,0,0)');
-    hg.addColorStop(1,stage===3?'rgba(255,160,60,.35)':'rgba(80,30,0,.2)');
-    ctx.fillStyle=hg; ctx.fillRect(0,GY-30,W,30);
+    // ===== 星（St1:多め / St2:少なめ / St3:なし） =====
+    if(stage<3){
+        const sc=stage===1?44:14;
+        for(let i=0;i<sc;i++){
+            const starX=(i*137+31)%W;
+            const starY=(i*83+17)%(GY*.74);
+            const tw=.28+.62*((Math.sin(gTick*.045+i*1.9)+1)/2);
+            ctx.globalAlpha=tw*(stage===2?.55:1);
+            ctx.fillStyle=i%6===0?'#ffe8b0':'#dde8ff';
+            ctx.fillRect(Math.floor(starX),Math.floor(starY),1,1);
+        }
+        ctx.globalAlpha=1;
+    }
 
-    // 遠景山シルエット（0.15xパラックス、W幅タイル）
-    ctx.fillStyle=stage===1?'#151c3a':stage===2?'#101018':'#4a6838';
+    // ===== 地平線グロー =====
+    const hg=ctx.createLinearGradient(0,GY-45,0,GY);
+    hg.addColorStop(0,'rgba(0,0,0,0)');
+    if(stage===1)      hg.addColorStop(1,'rgba(50,20,5,.22)');
+    else if(stage===2) hg.addColorStop(1,'rgba(100,45,10,.42)');
+    else               hg.addColorStop(1,'rgba(220,90,15,.65)');
+    ctx.fillStyle=hg; ctx.fillRect(0,GY-45,W,45);
+
+    // ===== 遠景山シルエット（0.15xパラックス） =====
+    ctx.fillStyle=stage===1?'#0b1126':stage===2?'#080912':'#160808';
     const moff=scroll*.15%W;
     for(let i=-1;i<3;i++){
         const mx=i*W-moff;
@@ -887,52 +918,78 @@ function drawBg(){
         ctx.closePath(); ctx.fill();
     }
 
-    // 中景廃墟（0.4xパラックス、60px幅タイル）
+    // ===== 中景廃墟（0.4xパラックス） =====
+    ctx.fillStyle=stage===1?'#121c2e':stage===2?'#0d0f18':'#200c08';
     const btw=60, boff=scroll*.4%btw;
-    ctx.fillStyle=stage===1?'#182030':stage===2?'#141018':'#3a5828';
     for(let i=-1;i<W/btw+2;i++){
         const bx=i*btw-boff, bh=18+(i*17+50)%18;
         px(bx,GY-bh,18,bh); px(bx+3,GY-bh-7,8,7); px(bx+14,GY-bh-10,6,10);
-        ctx.fillStyle=stage===3?'rgba(255,255,255,.12)':'rgba(0,0,0,.55)';
+        // 窓：St3は炎の反射でオレンジに
+        const wc=stage===3
+            ?`rgba(255,${90+Math.floor(Math.sin(gTick*.06+i)*30)},10,.4)`
+            :'rgba(0,0,0,.55)';
+        ctx.fillStyle=wc;
         px(bx+2,GY-bh+4,3,3); px(bx+8,GY-bh+4,3,3);
         px(bx+2,GY-bh+10,3,3); px(bx+8,GY-bh+10,3,3);
-        ctx.fillStyle=stage===1?'#182030':stage===2?'#141018':'#3a5828';
+        ctx.fillStyle=stage===1?'#121c2e':stage===2?'#0d0f18':'#200c08';
     }
 
-    // 煙
+    // ===== St3：地面炎グロー =====
+    if(stage===3){
+        const foff=scroll*.97%100;
+        for(let i=-1;i<W/100+2;i++){
+            const fx=i*100-foff+50;
+            const fp=.5+.5*Math.sin(gTick*.09+i*2.5);
+            ctx.globalAlpha=.07+fp*.13;
+            const fg=ctx.createRadialGradient(fx,GY+2,0,fx,GY-6,22);
+            fg.addColorStop(0,'rgba(255,130,20,1)');
+            fg.addColorStop(1,'rgba(200,40,0,0)');
+            ctx.fillStyle=fg; ctx.fillRect(fx-22,GY-16,44,20);
+        }
+        ctx.globalAlpha=1;
+    }
+
+    // ===== 煙 =====
     ctx.globalAlpha=.25; ctx.fillStyle='#777';
     smokes.forEach(s=>{ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});
     ctx.globalAlpha=1;
 
-    // 地面（画面最下部）
-    const gc=stage===1?'#b89450':stage===2?'#3a2c18':'#8a9858';
-    const gc2=stage===1?'#8a6830':stage===2?'#241a0c':'#607040';
-    ctx.fillStyle=gc; ctx.fillRect(0,GY,W,10);
+    // ===== 地面 =====
+    const gc =stage===1?'#58441e':stage===2?'#332514':'#2a1408';
+    const gc2=stage===1?'#3e2e10':stage===2?'#221a0c':'#1a0c06';
+    ctx.fillStyle=gc;  ctx.fillRect(0,GY,W,10);
     ctx.fillStyle=gc2; ctx.fillRect(0,GY+10,W,H-GY-10);
     // 地面ライン
-    ctx.fillStyle=stage===1?'#caa85a':stage===2?'#4a3820':'#aabb66';
-    ctx.fillRect(0,GY,W,2);
+    const glc=stage===1?'#7a6030':stage===2?'#4a3618':'rgba(200,75,15,.9)';
+    ctx.fillStyle=glc; ctx.fillRect(0,GY,W,2);
 
-    // 地面クレーター（1xスクロール、40px幅タイル）
-    ctx.fillStyle=stage===1?'#8a6030':stage===2?'#1e140a':'#404040';
+    // ===== 地面クレーター =====
+    ctx.fillStyle=stage===1?'#2e1e0a':stage===2?'#181006':'#140a04';
     const coff=scroll%40;
     for(let i=-1;i<W/40+2;i++){
         ctx.beginPath(); ctx.ellipse(i*40-coff,GY+8,8,3,0,0,Math.PI*2); ctx.fill();
     }
 
-    // 地面小道具（0.95xスクロール）
+    // ===== 地面小道具 =====
     if(stage===1){
-        ctx.fillStyle='#7a6040';
+        // 砂袋
+        ctx.fillStyle='#685030';
         const off=scroll*.95%70;
-        for(let i=-1;i<W/70+2;i++){const sx=i*70-off;px(sx,GY-8,12,8);px(sx+2,GY-12,9,5);}
+        for(let i=-1;i<W/70+2;i++){const gx=i*70-off;px(gx,GY-8,12,8);px(gx+2,GY-12,9,5);}
     }else if(stage===2){
-        ctx.fillStyle='#4a2c10';
+        // 倒れた木杭・有刺鉄線
+        ctx.fillStyle='#3e2410';
         const off=scroll*.95%80;
-        for(let i=-1;i<W/80+2;i++){const sx=i*80-off;px(sx,GY-14,2,14);px(sx-4,GY-10,10,2);}
+        for(let i=-1;i<W/80+2;i++){const gx=i*80-off;px(gx,GY-14,2,14);px(gx-4,GY-10,10,2);}
     }else{
-        ctx.fillStyle='#3a3a3a';
+        // 燃え残りの残骸＋ちらつく火種
+        ctx.fillStyle='#301808';
         const off=scroll*.95%55;
-        for(let i=-1;i<W/55+2;i++){const sx=i*55-off;px(sx,GY-6,8,6);px(sx+2,GY-9,4,4);}
+        for(let i=-1;i<W/55+2;i++){const gx=i*55-off;px(gx,GY-6,8,6);px(gx+2,GY-9,4,4);}
+        const ef=Math.floor(gTick/4)%2;
+        ctx.fillStyle=ef?'rgba(255,110,20,.7)':'rgba(180,50,8,.5)';
+        const eoff=scroll*.95%55;
+        for(let i=-1;i<W/55+2;i++){const gx=i*55-eoff+3;px(gx,GY-8,3,3);}
     }
 }
 
@@ -2358,7 +2415,8 @@ function draw(){
     const sx=Math.round((Math.random()-.5)*shake), sy=Math.round((Math.random()-.5)*shake);
     ctx.save();ctx.translate(sx,sy);
 
-    ctx.fillStyle='#0a0a1a';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle=stage===3?'#120410':stage===2?'#020208':'#010110';
+    ctx.fillRect(0,0,W,H);
     drawBg();
 
     // アイテム描画（type別）
