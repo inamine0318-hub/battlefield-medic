@@ -70,6 +70,7 @@ let tanks=[]; // 戦車（ステージ2）
 let clearTimer=0, clearRank='', clearTitle=''; // クリア演出
 let buddy={on:false,hp:0,tmr:0,fr:0,flash:0}; // 仲間兵士
 let notif={txt:'',t:0,col:'#44ff88'}; // 汎用通知（buddy等）
+let voice={txt:'',t:0}; // キャラ吹き出し台詞
 let tutPage=0;
 
 // ===== BGMシステム（Web Audio API 手続き的生成） =====
@@ -179,7 +180,9 @@ function snd(f,d){
     try{const ac=new(AudioContext||webkitAudioContext)(),o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=af;g.gain.setValueAtTime(.1,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}
 }
 function px(x,y,w,h){ctx.fillRect(Math.floor(x),Math.floor(y),w,h);}
-function txo(s,x,y,c,sz,al){
+function txo(s,x,y,c,sz,al,alpha){
+    const prev=utx.globalAlpha;
+    if(alpha!==undefined)utx.globalAlpha=alpha;
     const ux=x*uRatio,uy=y*uRatio,usz=sz*uRatio;
     utx.font=`bold ${usz}px -apple-system,'Hiragino Sans','Noto Sans JP',Arial,sans-serif`;
     utx.textAlign=al||'center';
@@ -187,6 +190,7 @@ function txo(s,x,y,c,sz,al){
     for(const[ox,oy]of[[-2,0],[2,0],[0,-2],[0,2],[-1,-2],[1,-2],[-1,2],[1,2],[-2,-1],[2,-1]])
         utx.fillText(s,ux+ox,uy+oy);
     utx.fillStyle=c;utx.fillText(s,ux,uy);
+    utx.globalAlpha=prev;
 }
 function spark(x,y,c,n){for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*3,vy:(Math.random()-.5)*3-1,c,l:20,ml:20});}
 
@@ -480,8 +484,8 @@ function update(){
         if(!(P.x<dx+s.w&&P.x+P.w>dx&&P.y<s.sy+s.h&&P.y+P.h>s.sy))return;
         // トリアージ：アイテム不足なら救助不可
         const stype=s.type||'normal';
-        if(stype==='bleed'&&P.tourn<=0)return;
-        if(stype==='shock'&&P.morph<=0)return;
+        if(stype==='bleed'&&P.tourn<=0){if(voice.t<20)voice={txt:'止血帯があれば…',t:110};return;}
+        if(stype==='shock'&&P.morph<=0){if(voice.t<20)voice={txt:'モルヒネがあれば…',t:110};return;}
 
         s.res=true; rescued++; combo++; ctmr=120;
         const mul=Math.min(5,Math.floor(combo/2)+1);
@@ -526,6 +530,7 @@ function update(){
     parts=parts.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.15;p.l--;return p.l>0;});
     if(rtxt&&--rtxt.t<=0)rtxt=null;
     if(notif.t>0)notif.t--;
+    if(voice.t>0)voice.t--;
     if(--ctmr<=0)combo=0;
     if(ctxt&&--ctxt.t<=0)ctxt=null;
     shake*=.8;
@@ -2069,6 +2074,23 @@ function drawUI(){
         utx.fillStyle='#ffff00';
         utx.fillText('x'+ctxt.n,(W/2)*uRatio,46*uRatio);
         utx.globalAlpha=1;
+    }
+
+    // キャラ吹き出し台詞
+    if(voice.t>0){
+        const a=Math.min(1,voice.t/18)*(voice.t>12?1:voice.t/12);
+        const bx=P.x+14, by=P.y-20, bw=74, bh=14;
+        // 吹き出し背景
+        ctx.globalAlpha=a*0.92;
+        ctx.fillStyle='#f5f5e8';
+        ctx.fillRect(bx,by,bw,bh);
+        ctx.fillStyle='#555';
+        ctx.lineWidth=1;ctx.strokeStyle='#aaa';ctx.strokeRect(bx,by,bw,bh);
+        // 尻尾（下向き三角、キャラ頭の方へ）
+        ctx.fillStyle='#f5f5e8';
+        ctx.beginPath();ctx.moveTo(bx+5,by+bh);ctx.lineTo(bx+5+5,by+bh);ctx.lineTo(bx+5+2,by+bh+5);ctx.closePath();ctx.fill();
+        ctx.globalAlpha=1;
+        txo(voice.txt,bx+bw/2,by+bh-3,'#222222',6.5,'center',a);
     }
 }
 
