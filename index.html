@@ -236,7 +236,7 @@ function inp(cx,cy){
     }
     if(gs==='tutorial'){
         tutPage++;
-        if(tutPage>=3){localStorage.setItem('bf_tutor','1');stage=1;rst();startBgm(1);}
+        if(tutPage>=4){localStorage.setItem('bf_tutor','1');stage=1;rst();startBgm(1);}
         return;
     }
     if(gs==='stageclear'){
@@ -1880,15 +1880,15 @@ function drawItemSlots(){
     if(!has)return;
     // 左下固定（地面より下のデッドゾーン・右下ボタンと干渉しない）
     let sx=3;
-    const sy=H-22, sw=10, sh=10, sg=3;
+    const sy=H-24, sw=10, sh=10, sg=8;
     // スロット数を先に数えてバー幅を決定
     let cnt=0;
     if(P.boots)cnt++;if(P.vest)cnt++;if(P.grenade)cnt++;
     if(P.tourn>0)cnt+=(P.tourn>1?1.5:1);if(P.morph>0)cnt+=(P.morph>1?1.5:1);
     if(rushTimer>0)cnt++;if(wingTimer>0)cnt++;
-    const barW=Math.ceil(cnt*(sw+sg))+2;
-    ctx.fillStyle='rgba(0,0,0,.80)'; ctx.fillRect(0,sy-2,barW,sh+4);
-    ctx.strokeStyle='#333'; ctx.lineWidth=1; ctx.strokeRect(0,sy-2,barW,sh+4);
+    const barW=Math.ceil(cnt*(sw+sg))+4;
+    ctx.fillStyle='rgba(0,0,0,.80)'; ctx.fillRect(0,sy-2,barW,sh+16);
+    ctx.strokeStyle='#333'; ctx.lineWidth=1; ctx.strokeRect(0,sy-2,barW,sh+16);
 
     function slotBG(x){
         ctx.fillStyle='#111'; ctx.fillRect(x,sy-1,sw,sh+2);
@@ -1896,13 +1896,13 @@ function drawItemSlots(){
     }
     function next(extra){sx+=sw+sg+(extra||0);}
 
-    const lsy=sy+sh+6; // ラベルy位置
+    const lsy=sy+sh+7; // ラベルy位置
     if(P.boots){
         slotBG(sx);
         ctx.fillStyle='#ffdd00'; px(sx+1,sy+2,8,4);
         ctx.fillStyle='#ff8800'; px(sx,sy+5,10,3);
         ctx.fillStyle='#cc6600'; px(sx,sy+7,10,2);
-        txo('BOOT',sx+sw/2,lsy,'#ffaa00',5);
+        txo('ブーツ',sx+sw/2,lsy,'#ffaa00',4);
         next();
     }
     if(P.vest){
@@ -1910,7 +1910,7 @@ function drawItemSlots(){
         ctx.fillStyle='#1a55bb'; px(sx+1,sy,8,9); ctx.fillStyle='#0e3a88'; px(sx,sy+2,10,5);
         ctx.fillStyle='#4488ee'; px(sx+2,sy+1,6,4);
         ctx.fillStyle='#fff'; px(sx+4,sy+1,2,8); px(sx+2,sy+4,6,2);
-        txo('VEST',sx+sw/2,lsy,'#4488ee',5);
+        txo('ベスト',sx+sw/2,lsy,'#4488ee',4);
         next();
     }
     if(P.grenade){
@@ -1919,22 +1919,22 @@ function drawItemSlots(){
         ctx.fillStyle='#44cc44'; px(sx+3,sy+1,4,3);
         ctx.fillStyle='#888'; px(sx+4,sy,2,2);
         ctx.fillStyle='#004400'; px(sx+2,sy+5,6,1);
-        txo('NADE',sx+sw/2,lsy,'#44ff88',5);
-        if(P.grenade>1){txo('×'+P.grenade,sx+sw+1,sy+9,'#88ff88',5,'left');next(5);}else next();
+        txo('煙幕',sx+sw/2,lsy,'#44ff88',4);
+        if(P.grenade>1){txo('×'+P.grenade,sx+sw+2,sy+9,'#88ff88',5,'left');next(5);}else next();
     }
     if(P.tourn>0){
         slotBG(sx);
         ctx.fillStyle='#dd2222'; px(sx,sy+3,10,4); ctx.fillStyle='#ff4444'; px(sx+3,sy,4,10);
         ctx.fillStyle='rgba(255,255,255,.7)'; px(sx+1,sy+4,8,2); px(sx+4,sy+1,2,8);
-        txo('止血帯',sx+sw/2,lsy,'#ff4444',5);
-        if(P.tourn>1){txo('×'+P.tourn,sx+sw+1,sy+9,'#ff8888',5,'left');next(5);}else next();
+        txo('止血帯',sx+sw/2,lsy,'#ff4444',4);
+        if(P.tourn>1){txo('×'+P.tourn,sx+sw+2,sy+9,'#ff8888',5,'left');next(5);}else next();
     }
     if(P.morph>0){
         slotBG(sx);
         ctx.fillStyle='#7722aa'; px(sx+3,sy,4,9); ctx.fillStyle='#cc88ff'; px(sx+4,sy+1,2,5);
         ctx.fillStyle='#aaa'; px(sx+4,sy+8,2,2); ctx.fillStyle='#ddd'; px(sx+5,sy+9,1,2);
-        txo('モルヒネ',sx+sw/2,lsy,'#cc44ff',5);
-        if(P.morph>1){txo('×'+P.morph,sx+sw+1,sy+9,'#cc88ff',5,'left');next(5);}else next();
+        txo('モルヒネ',sx+sw/2,lsy,'#cc44ff',4);
+        if(P.morph>1){txo('×'+P.morph,sx+sw+2,sy+9,'#cc88ff',5,'left');next(5);}else next();
     }
     if(rushTimer>0){
         slotBG(sx);
@@ -1943,7 +1943,7 @@ function drawItemSlots(){
         px(sx+5,sy,3,3); px(sx+3,sy+2,7,1); px(sx+3,sy+3,5,3); px(sx+4,sy+6,3,1); px(sx+4,sy+7,3,2);
         ctx.fillStyle='#333'; px(sx,sy+sh,sw,2);
         ctx.fillStyle=`hsl(${40+rp*20},100%,55%)`; px(sx,sy+sh,Math.floor(sw*rp),2);
-        txo('RUSH',sx+sw/2,lsy,'#ffaa00',5);
+        txo('無敵',sx+sw/2,lsy,'#ffaa00',4);
         next();
     }
     if(wingTimer>0){
@@ -1955,7 +1955,7 @@ function drawItemSlots(){
         const wp=wingTimer/WING_DUR;
         ctx.fillStyle='#333'; px(sx,sy+sh,sw,2);
         ctx.fillStyle=`hsl(45,100%,${55+wp*15|0}%)`; px(sx,sy+sh,Math.floor(sw*wp),2);
-        txo('JET',sx+sw/2,lsy,'#88aa88',5);
+        txo('飛行',sx+sw/2,lsy,'#88aa88',4);
         next();
     }
 }
@@ -2098,8 +2098,8 @@ function drawTutorial(){
     if(gs!=='tutorial')return;
     ctx.fillStyle='rgba(0,0,0,.96)';ctx.fillRect(0,0,W,H);
     txo('HOW TO PLAY',W/2,26,'#44ff88',11);
-    txo((tutPage+1)+' / 3',W/2,40,'#555555',7);
-    const titles=['基本操作','ミッション','アイテム'];
+    txo((tutPage+1)+' / 4',W/2,40,'#555555',7);
+    const titles=['基本操作','ミッション','アイテム','グレネード'];
     txo('── '+titles[tutPage]+' ──',W/2,56,'#44ff88',8);
     if(tutPage===0){
         txo('タップ',W/2,85,'#ffffff',9);
@@ -2108,14 +2108,14 @@ function drawTutorial(){
         txo('→ 2段ジャンプ',W/2,140,'#aaaaaa',8);
         txo('（ブーツ装備時のみ）',W/2,154,'#555',7);
         txo('右下ボタン',W/2,178,'#ffffff',9);
-        txo('→ グレネード投擲',W/2,193,'#aaaaaa',8);
+        txo('→ グレネード使用',W/2,193,'#aaaaaa',8);
     } else if(tutPage===1){
         txo('負傷兵を救助して',W/2,85,'#ffffff',9);
         txo('ヘリコプターへ届けろ！',W/2,103,'#ffffff',9);
         txo('各ステージに',W/2,135,'#aaaaaa',8);
         txo('救助目標数がある',W/2,150,'#aaaaaa',8);
         txo('目標達成でヘリに追いつける',W/2,172,'#ffff44',7);
-    } else {
+    } else if(tutPage===2){
         txo('負傷兵の頭上を確認！',W/2,82,'#ffffff',9);
         // 赤十字アイコン図解
         ctx.fillStyle='#ff2222';
@@ -2127,9 +2127,23 @@ function drawTutorial(){
         txo('→ モルヒネが必要',W/2+14,137,'#cc44ff',8,'left');
         txo('アイコンが赤点滅 →',W/2,168,'#ffff44',7);
         txo('持っていないサイン！',W/2,181,'#ffff44',7);
+    } else {
+        // 煙幕グレネードの説明
+        txo('右下ボタンで',W/2,82,'#ffffff',9);
+        txo('煙幕を展開！',W/2,98,'#44ff88',9);
+        // 煙のドット絵イメージ
+        ctx.fillStyle='rgba(180,220,180,.6)';
+        for(const[ox,oy,r]of[[-18,135,14],[0,128,18],[18,135,14],[-10,148,11],[10,148,11]]){
+            ctx.beginPath();ctx.arc(W/2+ox,oy,r,0,Math.PI*2);ctx.fill();
+        }
+        ctx.fillStyle='rgba(100,180,100,.4)';
+        ctx.beginPath();ctx.arc(W/2,135,22,0,Math.PI*2);ctx.fill();
+        txo('５秒間、全ての攻撃を無効化',W/2,176,'#ffffff',7.5);
+        txo('ヘリの索敵も完全遮断！',W/2,192,'#44ff88',7.5);
+        txo('ピンチのときに使おう',W/2,212,'#ffff44',7);
     }
     if(Math.floor(gTick/20)%2===0)
-        txo(tutPage<2?'タップで次へ →':'タップでスタート！',W/2,H-16,'#44ff44',8);
+        txo(tutPage<3?'タップで次へ →':'タップでゲームスタート！',W/2,H-16,'#44ff44',8);
 }
 
 function drawOver(){
