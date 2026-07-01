@@ -476,10 +476,11 @@ function update(){
         if(t%280===0&&Math.random()<.48 &&canSpawn(gx)) items.push({sx:gx,sy:GY-11,w:8,h:7,got:false,type:'morph'});
         if(t%500===0&&Math.random()<.3  &&canSpawn(gx)) items.push({sx:gx,sy:GY-18,w:8,h:7,got:false,type:'jetpack'});
         if(t%420===0&&Math.random()<.32 &&stage>=2&&!buddy.on&&canSpawn(gx)) items.push({sx:gx,sy:GY-14,w:10,h:10,got:false,type:'buddy'});
-        // 補給ドロップ（空から落下）
+        // 補給ドロップ（？ボックス・空中キャッチ限定）
         if(t%480===0&&Math.random()<.7){
-            const _dt=['tourn','morph','heart'][Math.floor(Math.random()*3)];
-            drops.push({sx:scroll+W*0.3+Math.random()*W*0.4,sy:-12,vy:0.6,got:false,type:_dt});
+            const r=Math.random();
+            const _dt=r<.3?'fullhp':r<.6?'supply':'bomb';
+            drops.push({sx:scroll+W*0.3+Math.random()*W*0.4,sy:-12,vy:0.55,got:false,type:_dt});
         }
         // 地雷（ステージ2以降）
         if(stage>=2&&t%200===0&&Math.random()<.55&&canSpawn(gx))
@@ -589,22 +590,28 @@ function update(){
             else if(it.type==='buddy'){buddy={on:true,hp:3,tmr:540,fr:0,flash:0};spark(dx+it.w/2,it.sy,'#44ff88',16);snd(700,.22);notif={txt:'増援到着！',t:90,col:'#44ff88'};}
         }
     });
-    // 補給ドロップ更新
+    // 補給ドロップ更新（空中キャッチ限定・地面到達で消滅）
     drops.forEach(d=>{
         if(d.got)return;
-        d.sx+=spd; // スクロールと一緒に動いて画面上で同じ位置をキープ
+        d.sx+=spd;
         d.vy=Math.min(1.6,d.vy+0.035);d.sy+=d.vy;
-        if(d.sy>=GY-8)d.vy=0; // 地面で止まる
+        if(d.sy>=GY-8){d.got=true;return;} // 地面到達で消滅
         const dx=d.sx-scroll;
-        if(!d.got&&P.x<dx+8&&P.x+P.w>dx&&P.y<d.sy+8&&P.y+P.h>d.sy){
-            d.got=true;spark(dx+4,d.sy,'#ffffff',10);snd(660,.18);
-            if(d.type==='tourn'){
-                if(P.tourn>=3)notif={txt:'止血帯は満杯！ MAX3',t:90,col:'#ff4444'};
-                else{P.tourn++;notif={txt:'補給！止血帯 ×'+P.tourn,t:90,col:'#ff4444'};}}
-            else if(d.type==='morph'){
-                if(P.morph>=3)notif={txt:'モルヒネは満杯！ MAX3',t:90,col:'#cc44ff'};
-                else{P.morph++;notif={txt:'補給！モルヒネ ×'+P.morph,t:90,col:'#cc44ff'};}}
-            else{P.hp=Math.min(P.mhp,P.hp+1);notif={txt:'補給！ HP+1',t:90,col:'#ff4488'};}
+        if(!P.onG&&P.x<dx+8&&P.x+P.w>dx&&P.y<d.sy+8&&P.y+P.h>d.sy){
+            d.got=true;
+            if(d.type==='fullhp'){
+                P.hp=P.mhp;spark(dx+4,d.sy,'#ff88bb',14);sfx('rescue');
+                notif={txt:'全回復！',t:120,col:'#ff4488'};
+            }else if(d.type==='supply'){
+                P.tourn=Math.min(3,P.tourn+2);P.morph=Math.min(3,P.morph+2);
+                spark(dx+4,d.sy,'#aaffee',14);snd(520,.2);
+                notif={txt:'緊急補給！止血帯＆モルヒネ補充',t:130,col:'#44ffaa'};
+            }else{
+                if(P.vest){P.vest=false;}
+                else{P.hp=Math.max(0,P.hp-1);P.inv=30;shake=8;flash=20;dmg++;}
+                spark(dx+4,d.sy,'#ff4400',18);sfx('explode_small');
+                notif={txt:'爆弾だ！',t:100,col:'#ff4400'};
+            }
         }
     });
     drops=drops.filter(d=>!d.got&&d.sy<H+30);
@@ -752,7 +759,7 @@ function update(){
                     airBullets.push({x:mx,y:my,
                         vx:(tx-mx)/d_*5, vy:(ty-my)/d_*5,
                         life:Math.ceil(d_/5)+14});
-                    snd(280,.04,.25);
+                    sfx('shoot');
                 }
                 if(a.ptimer>55){a.phase='leave';a.ptimer=0;a.sp=1.3;}
             }else if(a.phase==='leave'){
@@ -2347,8 +2354,10 @@ function drawTutorial(){
         txo('→ モルヒネが必要',W/2+14,137,'#cc44ff',8,'left');
         txo('アイコンが赤点滅 →',W/2,168,'#ffff44',7);
         txo('持っていないサイン！',W/2,181,'#ffff44',7);
-        txo('各アイテム 最大3個まで所持可能',W/2,202,'#ffffff',6.5);
-        txo('右端に次の負傷兵の予告が出るよ',W/2,217,'#44ffaa',6.5);
+        txo('各アイテム 最大3個まで所持可能',W/2,200,'#ffffff',6.5);
+        txo('右端に次の負傷兵の予告が出るよ',W/2,214,'#44ffaa',6.5);
+        txo('？ボックスが空から落下！',W/2,229,'#ffdd44',6.5);
+        txo('ジャンプして空中でキャッチ！',W/2,242,'#ffdd44',6.5);
     } else {
         // 煙幕グレネードの説明
         txo('右下ボタンで',W/2,82,'#ffffff',9);
@@ -2670,21 +2679,21 @@ function draw(){
         ctx.fillStyle='#cc2200';ctx.beginPath();ctx.arc(dx+4,m.sy+1,3,0,Math.PI*2);ctx.fill();
         ctx.fillStyle='#888';px(dx+3,m.sy-3,2,3); // 信管
     });
-    // 補給ドロップ描画
+    // 補給ドロップ描画（すべて？ボックス）
     drops.forEach(d=>{
         if(d.got)return;
         const dx=d.sx-scroll;
         if(dx<-20||dx>W+20)return;
-        if(d.sy<GY-8){ // 落下中はパラシュート
-            ctx.fillStyle='rgba(240,235,180,0.85)';
-            ctx.beginPath();ctx.arc(dx+4,d.sy-10,9,Math.PI,0);ctx.fill();
-            ctx.strokeStyle='rgba(200,190,130,0.7)';ctx.lineWidth=0.5;
-            ctx.beginPath();ctx.moveTo(dx-5,d.sy-10);ctx.lineTo(dx+1,d.sy);ctx.stroke();
-            ctx.beginPath();ctx.moveTo(dx+13,d.sy-10);ctx.lineTo(dx+7,d.sy);ctx.stroke();
-        }
-        ctx.fillStyle='#7a5c1a';px(dx,d.sy,8,7);
-        const ic=d.type==='tourn'?'#ff4444':d.type==='morph'?'#cc44ff':'#ff4488';
-        ctx.fillStyle=ic;px(dx+2,d.sy+1,4,5);
+        // パラシュート
+        ctx.fillStyle='rgba(240,235,180,0.88)';
+        ctx.beginPath();ctx.arc(dx+4,d.sy-11,10,Math.PI,0);ctx.fill();
+        ctx.strokeStyle='rgba(190,180,120,0.75)';ctx.lineWidth=0.6;
+        ctx.beginPath();ctx.moveTo(dx-6,d.sy-11);ctx.lineTo(dx+1,d.sy);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(dx+14,d.sy-11);ctx.lineTo(dx+7,d.sy);ctx.stroke();
+        // ？ボックス
+        ctx.fillStyle='#5a4010';px(dx,d.sy,8,7);
+        ctx.fillStyle='#c89030';px(dx+1,d.sy+1,6,5);
+        txo('?',dx+4,d.sy+7,'#ffffff',6,'center');
     });
     drawObs();
     drawTanks();
