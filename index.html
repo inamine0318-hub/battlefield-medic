@@ -70,6 +70,7 @@ let tanks=[]; // 戦車（ステージ2）
 let clearTimer=0, clearRank='', clearTitle=''; // クリア演出
 let buddy={on:false,hp:0,tmr:0,fr:0,flash:0}; // 仲間兵士
 let notif={txt:'',t:0,col:'#44ff88'}; // 汎用通知（buddy等）
+let tutPage=0;
 
 // ===== BGMシステム（Web Audio API 手続き的生成） =====
 let bgmAc=null,bgmGain=null,bgmLoopTimer=null,bgmActive=false,bgmStageNum=0;
@@ -225,7 +226,14 @@ function inp(cx,cy){
             if(cx>=6&&cx<=84){selectedChar=0;return;}
             if(cx>=96&&cx<=174){selectedChar=1;return;}
         }
-        stage=1;rst();startBgm(1);return;
+        if(!localStorage.getItem('bf_tutor')){tutPage=0;gs='tutorial';}
+        else{stage=1;rst();startBgm(1);}
+        return;
+    }
+    if(gs==='tutorial'){
+        tutPage++;
+        if(tutPage>=3){localStorage.setItem('bf_tutor','1');stage=1;rst();startBgm(1);}
+        return;
     }
     if(gs==='stageclear'){
         if(clearTimer>70){
@@ -301,7 +309,9 @@ function canSpawn(sx, margin){
 }
 
 // ===== UPDATE =====
+let gTick=0; // 全状態共通タイマー（アニメ用）
 function update(){
+    gTick++;
     if(gs==='stageclear'){clearTimer++;return;}
     if(gs!=='playing')return;
     // 速度：ステージ別ベース＋距離に応じて後半30%増し
@@ -454,13 +464,13 @@ function update(){
         const dx=it.sx-scroll;
         if(P.x<dx+it.w&&P.x+P.w>dx&&P.y<it.sy+it.h&&P.y+P.h>it.sy){
             it.got=true;
-            if(it.type==='boots'){P.boots=true; spark(dx+it.w/2,it.sy,'#ffff00',8); snd(660,.12);}
-            else if(it.type==='vest'){P.vest=true; spark(dx+it.w/2,it.sy,'#4488ff',10); snd(550,.15);}
-            else if(it.type==='grenade'){P.grenade=Math.min(CHARS[selectedChar].grenade,P.grenade+1); spark(dx+it.w/2,it.sy,'#aaffaa',10); snd(440,.15);}
-            else if(it.type==='heart'){P.hp=Math.min(P.mhp,P.hp+1); spark(dx+it.w/2,it.sy,'#ff4488',12); snd(740,.2);}
-            else if(it.type==='tourn'){P.tourn++; spark(dx+it.w/2,it.sy,'#ff4444',10); snd(600,.12);}
-            else if(it.type==='morph'){P.morph++; spark(dx+it.w/2,it.sy,'#cc44ff',10); snd(500,.12);}
-            else if(it.type==='jetpack'){wingTimer=WING_DUR; spark(dx+it.w/2,it.sy,'#ff8800',16); snd(880,.4);}
+            if(it.type==='boots'){P.boots=true; spark(dx+it.w/2,it.sy,'#ffff00',8); snd(660,.12);notif={txt:'ブーツ 装備！',t:90,col:'#ffdd00'};}
+            else if(it.type==='vest'){P.vest=true; spark(dx+it.w/2,it.sy,'#4488ff',10); snd(550,.15);notif={txt:'防弾ベスト 装備！',t:90,col:'#4488ee'};}
+            else if(it.type==='grenade'){P.grenade=Math.min(CHARS[selectedChar].grenade,P.grenade+1); spark(dx+it.w/2,it.sy,'#aaffaa',10); snd(440,.15);notif={txt:'グレネード ×'+P.grenade,t:90,col:'#44ff88'};}
+            else if(it.type==='heart'){P.hp=Math.min(P.mhp,P.hp+1); spark(dx+it.w/2,it.sy,'#ff4488',12); snd(740,.2);notif={txt:'回復！ HP+1',t:90,col:'#ff4488'};}
+            else if(it.type==='tourn'){P.tourn++; spark(dx+it.w/2,it.sy,'#ff4444',10); snd(600,.12);notif={txt:'止血帯 ×'+P.tourn,t:90,col:'#ff4444'};}
+            else if(it.type==='morph'){P.morph++; spark(dx+it.w/2,it.sy,'#cc44ff',10); snd(500,.12);notif={txt:'モルヒネ ×'+P.morph,t:90,col:'#cc44ff'};}
+            else if(it.type==='jetpack'){wingTimer=WING_DUR; spark(dx+it.w/2,it.sy,'#ff8800',16); snd(880,.4);notif={txt:'ジェットパック！',t:90,col:'#ff8800'};}
             else if(it.type==='buddy'){buddy={on:true,hp:3,tmr:540,fr:0,flash:0};spark(dx+it.w/2,it.sy,'#44ff88',16);snd(700,.22);notif={txt:'増援到着！',t:90,col:'#44ff88'};}
         }
     });
@@ -1865,7 +1875,7 @@ function drawItemSlots(){
     if(!has)return;
     // 左下固定（地面より下のデッドゾーン・右下ボタンと干渉しない）
     let sx=3;
-    const sy=H-16, sw=10, sh=10, sg=3;
+    const sy=H-22, sw=10, sh=10, sg=3;
     // スロット数を先に数えてバー幅を決定
     let cnt=0;
     if(P.boots)cnt++;if(P.vest)cnt++;if(P.grenade)cnt++;
@@ -1881,11 +1891,13 @@ function drawItemSlots(){
     }
     function next(extra){sx+=sw+sg+(extra||0);}
 
+    const lsy=sy+sh+6; // ラベルy位置
     if(P.boots){
         slotBG(sx);
         ctx.fillStyle='#ffdd00'; px(sx+1,sy+2,8,4);
         ctx.fillStyle='#ff8800'; px(sx,sy+5,10,3);
         ctx.fillStyle='#cc6600'; px(sx,sy+7,10,2);
+        txo('BOOT',sx+sw/2,lsy,'#ffaa00',5);
         next();
     }
     if(P.vest){
@@ -1893,6 +1905,7 @@ function drawItemSlots(){
         ctx.fillStyle='#1a55bb'; px(sx+1,sy,8,9); ctx.fillStyle='#0e3a88'; px(sx,sy+2,10,5);
         ctx.fillStyle='#4488ee'; px(sx+2,sy+1,6,4);
         ctx.fillStyle='#fff'; px(sx+4,sy+1,2,8); px(sx+2,sy+4,6,2);
+        txo('VEST',sx+sw/2,lsy,'#4488ee',5);
         next();
     }
     if(P.grenade){
@@ -1901,18 +1914,21 @@ function drawItemSlots(){
         ctx.fillStyle='#44cc44'; px(sx+3,sy+1,4,3);
         ctx.fillStyle='#888'; px(sx+4,sy,2,2);
         ctx.fillStyle='#004400'; px(sx+2,sy+5,6,1);
+        txo('NADE',sx+sw/2,lsy,'#44ff88',5);
         if(P.grenade>1){txo('×'+P.grenade,sx+sw+1,sy+9,'#88ff88',5,'left');next(5);}else next();
     }
     if(P.tourn>0){
         slotBG(sx);
         ctx.fillStyle='#dd2222'; px(sx,sy+3,10,4); ctx.fillStyle='#ff4444'; px(sx+3,sy,4,10);
         ctx.fillStyle='rgba(255,255,255,.7)'; px(sx+1,sy+4,8,2); px(sx+4,sy+1,2,8);
+        txo('止血帯',sx+sw/2,lsy,'#ff4444',5);
         if(P.tourn>1){txo('×'+P.tourn,sx+sw+1,sy+9,'#ff8888',5,'left');next(5);}else next();
     }
     if(P.morph>0){
         slotBG(sx);
         ctx.fillStyle='#7722aa'; px(sx+3,sy,4,9); ctx.fillStyle='#cc88ff'; px(sx+4,sy+1,2,5);
         ctx.fillStyle='#aaa'; px(sx+4,sy+8,2,2); ctx.fillStyle='#ddd'; px(sx+5,sy+9,1,2);
+        txo('モルヒネ',sx+sw/2,lsy,'#cc44ff',5);
         if(P.morph>1){txo('×'+P.morph,sx+sw+1,sy+9,'#cc88ff',5,'left');next(5);}else next();
     }
     if(rushTimer>0){
@@ -1922,6 +1938,7 @@ function drawItemSlots(){
         px(sx+5,sy,3,3); px(sx+3,sy+2,7,1); px(sx+3,sy+3,5,3); px(sx+4,sy+6,3,1); px(sx+4,sy+7,3,2);
         ctx.fillStyle='#333'; px(sx,sy+sh,sw,2);
         ctx.fillStyle=`hsl(${40+rp*20},100%,55%)`; px(sx,sy+sh,Math.floor(sw*rp),2);
+        txo('RUSH',sx+sw/2,lsy,'#ffaa00',5);
         next();
     }
     if(wingTimer>0){
@@ -1933,6 +1950,7 @@ function drawItemSlots(){
         const wp=wingTimer/WING_DUR;
         ctx.fillStyle='#333'; px(sx,sy+sh,sw,2);
         ctx.fillStyle=`hsl(45,100%,${55+wp*15|0}%)`; px(sx,sy+sh,Math.floor(sw*wp),2);
+        txo('JET',sx+sw/2,lsy,'#88aa88',5);
         next();
     }
 }
@@ -2052,6 +2070,44 @@ function drawUI(){
         utx.fillText('x'+ctxt.n,(W/2)*uRatio,46*uRatio);
         utx.globalAlpha=1;
     }
+}
+
+function drawTutorial(){
+    if(gs!=='tutorial')return;
+    ctx.fillStyle='rgba(0,0,0,.96)';ctx.fillRect(0,0,W,H);
+    txo('HOW TO PLAY',W/2,26,'#44ff88',11);
+    txo((tutPage+1)+' / 3',W/2,40,'#555555',7);
+    const titles=['基本操作','ミッション','アイテム'];
+    txo('── '+titles[tutPage]+' ──',W/2,56,'#44ff88',8);
+    if(tutPage===0){
+        txo('タップ',W/2,85,'#ffffff',9);
+        txo('→ ジャンプ',W/2,100,'#aaaaaa',8);
+        txo('2回タップ',W/2,125,'#ffffff',9);
+        txo('→ 2段ジャンプ',W/2,140,'#aaaaaa',8);
+        txo('（ブーツ装備時のみ）',W/2,154,'#555',7);
+        txo('右下ボタン',W/2,178,'#ffffff',9);
+        txo('→ グレネード投擲',W/2,193,'#aaaaaa',8);
+    } else if(tutPage===1){
+        txo('負傷兵を救助して',W/2,85,'#ffffff',9);
+        txo('ヘリコプターへ届けろ！',W/2,103,'#ffffff',9);
+        txo('各ステージに',W/2,135,'#aaaaaa',8);
+        txo('救助目標数がある',W/2,150,'#aaaaaa',8);
+        txo('目標達成でヘリに追いつける',W/2,172,'#ffff44',7);
+    } else {
+        txo('負傷兵の頭上を確認！',W/2,82,'#ffffff',9);
+        // 赤十字アイコン図解
+        ctx.fillStyle='#ff2222';
+        px(W/2-1,100,2,10); px(W/2-4,103,8,2);
+        txo('→ 止血帯が必要',W/2+14,107,'#ff4444',8,'left');
+        // シリンジアイコン図解
+        ctx.fillStyle='#cc44ff';
+        px(W/2-1,130,2,12); px(W/2-2,128,4,3); px(W/2-1,141,2,3);
+        txo('→ モルヒネが必要',W/2+14,137,'#cc44ff',8,'left');
+        txo('アイコンが赤点滅 →',W/2,168,'#ffff44',7);
+        txo('持っていないサイン！',W/2,181,'#ffff44',7);
+    }
+    if(Math.floor(gTick/20)%2===0)
+        txo(tutPage<2?'タップで次へ →':'タップでスタート！',W/2,H-16,'#44ff44',8);
 }
 
 function drawOver(){
@@ -2393,7 +2449,29 @@ function draw(){
         ctx.closePath();ctx.fill();
     });
 
-    inj.forEach(s=>{const dx=s.sx-scroll;if(!s.res&&dx>-20&&dx<W+20)drawInjured(dx,s.sy,s.type);});
+    inj.forEach(s=>{
+        const dx=s.sx-scroll;
+        if(s.res||dx<-20||dx>W+20)return;
+        drawInjured(dx,s.sy,s.type);
+        // 必要アイテムアイコン（頭上）
+        if(s.type==='bleed'){
+            const has=P.tourn>0;
+            const blink=!has&&Math.floor(t/10)%2===0;
+            if(!blink){
+                ctx.fillStyle=has?'#44ff44':'#ff2222';
+                px(dx+5,s.sy-10,2,6); px(dx+3,s.sy-8,6,2); // 赤十字
+            }
+        } else if(s.type==='shock'){
+            const has=P.morph>0;
+            const blink=!has&&Math.floor(t/10)%2===0;
+            if(!blink){
+                ctx.fillStyle=has?'#aa88ff':'#cc44ff';
+                px(dx+5,s.sy-12,2,8); // シリンジ本体
+                px(dx+4,s.sy-13,4,2); // 上部
+                px(dx+5,s.sy-5,2,2);  // 針
+            }
+        }
+    });
 
     // パーティクル
     parts.forEach(p=>{ctx.globalAlpha=p.l/p.ml;ctx.fillStyle=p.c;px(p.x-1,p.y-1,2,2);});
@@ -2498,6 +2576,7 @@ function draw(){
 
     drawUI();
     drawOver();
+    drawTutorial();
 }
 
 function loop(){update();draw();requestAnimationFrame(loop);}
