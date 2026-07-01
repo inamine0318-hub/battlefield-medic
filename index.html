@@ -480,7 +480,7 @@ function update(){
         if(t%480===0&&Math.random()<.7){
             const r=Math.random();
             const _dt=r<.3?'fullhp':r<.6?'supply':'bomb';
-            drops.push({sx:scroll+W*0.3+Math.random()*W*0.4,sy:-12,vy:0.55,got:false,type:_dt});
+            drops.push({sx:scroll+W+10,sy:-12,vy:0.55,got:false,type:_dt,landed:false,timer:150});
         }
         // 地雷（ステージ2以降）
         if(stage>=2&&t%200===0&&Math.random()<.55&&canSpawn(gx))
@@ -590,14 +590,19 @@ function update(){
             else if(it.type==='buddy'){buddy={on:true,hp:3,tmr:540,fr:0,flash:0};spark(dx+it.w/2,it.sy,'#44ff88',16);snd(700,.22);notif={txt:'増援到着！',t:90,col:'#44ff88'};}
         }
     });
-    // 補給ドロップ更新（空中キャッチ限定・地面到達で消滅）
+    // 補給ドロップ更新（右端落下→地面停止→点滅消滅）
     drops.forEach(d=>{
         if(d.got)return;
-        d.sx+=spd;
-        d.vy=Math.min(1.6,d.vy+0.035);d.sy+=d.vy;
-        if(d.sy>=GY-8){d.got=true;return;} // 地面到達で消滅
+        if(!d.landed){
+            d.sx+=spd; // 落下中はスクロール追従
+            d.vy=Math.min(1.6,d.vy+0.035);d.sy+=d.vy;
+            if(d.sy>=GY-8){d.sy=GY-8;d.landed=true;}
+        }else{
+            d.timer--;
+            if(d.timer<=0){d.got=true;return;}
+        }
         const dx=d.sx-scroll;
-        if(!P.onG&&P.x<dx+8&&P.x+P.w>dx&&P.y<d.sy+8&&P.y+P.h>d.sy){
+        if(P.x<dx+8&&P.x+P.w>dx&&P.y<d.sy+8&&P.y+P.h>d.sy){
             d.got=true;
             if(d.type==='fullhp'){
                 P.hp=P.mhp;spark(dx+4,d.sy,'#ff88bb',14);sfx('rescue');
@@ -614,7 +619,7 @@ function update(){
             }
         }
     });
-    drops=drops.filter(d=>!d.got&&d.sy<H+30);
+    drops=drops.filter(d=>!d.got);
     // 地雷判定（ジャンプ中はセーフ）
     if(!inSmoke()&&rushTimer<=0)mines.forEach(m=>{
         if(m.hit||P.inv>0)return;
@@ -2682,14 +2687,16 @@ function draw(){
     // 補給ドロップ描画（すべて？ボックス）
     drops.forEach(d=>{
         if(d.got)return;
+        if(d.landed&&d.timer<30&&Math.floor(d.timer/4)%2===0)return; // 点滅
         const dx=d.sx-scroll;
         if(dx<-20||dx>W+20)return;
-        // パラシュート
-        ctx.fillStyle='rgba(240,235,180,0.88)';
-        ctx.beginPath();ctx.arc(dx+4,d.sy-11,10,Math.PI,0);ctx.fill();
-        ctx.strokeStyle='rgba(190,180,120,0.75)';ctx.lineWidth=0.6;
-        ctx.beginPath();ctx.moveTo(dx-6,d.sy-11);ctx.lineTo(dx+1,d.sy);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(dx+14,d.sy-11);ctx.lineTo(dx+7,d.sy);ctx.stroke();
+        if(!d.landed){ // 落下中はパラシュート
+            ctx.fillStyle='rgba(240,235,180,0.88)';
+            ctx.beginPath();ctx.arc(dx+4,d.sy-11,10,Math.PI,0);ctx.fill();
+            ctx.strokeStyle='rgba(190,180,120,0.75)';ctx.lineWidth=0.6;
+            ctx.beginPath();ctx.moveTo(dx-6,d.sy-11);ctx.lineTo(dx+1,d.sy);ctx.stroke();
+            ctx.beginPath();ctx.moveTo(dx+14,d.sy-11);ctx.lineTo(dx+7,d.sy);ctx.stroke();
+        }
         // ？ボックス
         ctx.fillStyle='#5a4010';px(dx,d.sy,8,7);
         ctx.fillStyle='#c89030';px(dx+1,d.sy+1,6,5);
