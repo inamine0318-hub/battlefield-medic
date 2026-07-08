@@ -69,6 +69,7 @@ let enemies=[], enemyBullets=[]; // 地上敵兵士
 let tanks=[]; // 戦車（ステージ2）
 let drops=[], mines=[]; // 補給ドロップ・地雷
 let clearTimer=0, clearRank='', clearTitle=''; // クリア演出
+let briefTimer=0; // ブリーフィング演出
 let buddy={on:false,hp:0,tmr:0,fr:0,flash:0}; // 仲間兵士
 let notif={txt:'',t:0,col:'#44ff88'}; // 汎用通知（buddy等）
 let voice={txt:'',t:0}; // キャラ吹き出し台詞
@@ -334,9 +335,13 @@ function inp(cx,cy){
 
     if(gs==='stageclear'){
         if(clearTimer>70){
-            if(stage<3){stage++;rst();startBgm(stage);}
+            if(stage<3){gs='briefing';briefTimer=0;}
             else{stopBgm();save();location.reload();}
         }
+        return;
+    }
+    if(gs==='briefing'){
+        if(briefTimer>40){stage++;rst();startBgm(stage);}
         return;
     }
     if(gs==='gameover'){location.reload();return;}
@@ -389,7 +394,7 @@ function rst(){
     enemies=[]; enemyBullets=[]; tanks=[]; drops=[]; mines=[];
     buddy={on:false,hp:0,tmr:0,fr:0,flash:0};
     notif={txt:'',t:0,col:'#44ff88'};
-    clearTimer=0;
+    clearTimer=0;briefTimer=0;
 }
 function save(){totR+=rescued;if(score>best)best=score;localStorage.setItem('bf_total',totR);localStorage.setItem('bf_high',best);}
 
@@ -410,6 +415,7 @@ let gTick=0; // 全状態共通タイマー（アニメ用）
 function update(){
     gTick++;
     if(gs==='stageclear'){clearTimer++;return;}
+    if(gs==='briefing'){briefTimer++;return;}
     if(gs!=='playing')return;
     const _vest=P.vest; // ベスト破壊検知用
     // 速度：ステージ別ベース＋距離増し＋コンボボーナス
@@ -2402,7 +2408,7 @@ function drawTutorial(){
 }
 
 function drawOver(){
-    if(!['start','gameover','stageclear'].includes(gs))return;
+    if(!['start','gameover','stageclear','briefing'].includes(gs))return;
     ctx.fillStyle='rgba(0,0,0,.94)';ctx.fillRect(0,0,W,H);
     ctx.textAlign='center';
     if(gs==='start'){
@@ -2562,12 +2568,27 @@ function drawOver(){
             ctx.globalAlpha=1;
         }
 
-        // 統計（10F間隔で順次表示）
+        // ランク出現フラッシュ（ct=35付近）
+        if(ct>=35&&ct<52){
+            const fa=Math.max(0,.55-(ct-35)*.033);
+            ctx.globalAlpha=fa;
+            ctx.fillStyle=clearRank==='S'?'#ffe840':clearRank==='A'?'#88ccff':'#ffffff';
+            ctx.fillRect(0,0,W,H);
+            ctx.globalAlpha=1;
+        }
+
+        // 統計（カウントアップ付き）
         const slx=W/2-50;
-        if(ct>56) txo('救助数 :  '+rescued+' / '+GOALS[stage-1]+'名',slx,140,'#44ffaa',7,'left');
-        if(ct>66) txo('被弾数 :  '+dmg+'回',                          slx,156,'#cccccc',7,'left');
-        if(ct>76) txo('スコア :  '+score+' pt',                        slx,172,'#ffff44',7,'left');
-        if(ct>86) txo('ベスト :  '+best+' pt',                         slx,188,'#ffaa44',7,'left');
+        if(ct>56){
+            const r=ct<80?Math.floor((ct-56)/24*rescued):rescued;
+            txo('救助数 :  '+r+' / '+GOALS[stage-1]+'名',slx,140,'#44ffaa',7,'left');
+        }
+        if(ct>66) txo('被弾数 :  '+dmg+'回',slx,156,'#cccccc',7,'left');
+        if(ct>76){
+            const sc=ct<110?Math.floor((ct-76)/34*score):score;
+            txo('スコア :  '+sc+' pt',slx,172,'#ffff44',7,'left');
+        }
+        if(ct>86) txo('ベスト :  '+best+' pt',slx,188,'#ffaa44',7,'left');
 
         // 称号（フェードイン・背景パネル付き）
         if(ct>100){
@@ -2584,6 +2605,59 @@ function drawOver(){
         if(ct>115&&Math.floor(ct/20)%2===0){
             txo(stage<3?'[ タップで次のステージへ ]':'[ 全ミッション完了！ ]',W/2,H-14,'#44ff44',7);
         }
+
+    }else if(gs==='briefing'){
+        // === ステージ間ブリーフィング ===
+        const bt=briefTimer;
+        const nst=stage+1; // 次のステージ番号
+        const bAlpha=Math.min(1,bt/18);
+
+        // 背景（次ステージカラー）
+        const bbg=ctx.createLinearGradient(0,0,0,H);
+        if(nst===2){bbg.addColorStop(0,'#14061c');bbg.addColorStop(1,'#280a08');}
+        else        {bbg.addColorStop(0,'#0a2040');bbg.addColorStop(1,'#1a4060');}
+        ctx.fillStyle=bbg;ctx.fillRect(0,0,W,H);
+
+        ctx.globalAlpha=bAlpha;
+
+        // ステージ番号
+        txo('STAGE '+nst,W/2,52,'#ffffff',14);
+
+        // サブタイトル
+        const sub=nst===2?'燃える夜明け':'激戦の昼';
+        const subcol=nst===2?'#ff8844':'#ffe060';
+        txo(sub,W/2,74,subcol,9);
+
+        // 区切り線
+        ctx.globalAlpha=bAlpha*.7;
+        ctx.strokeStyle=nst===2?'#662200':'#446688';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(22,88);ctx.lineTo(W-22,88);ctx.stroke();
+        ctx.globalAlpha=bAlpha;
+
+        // 敵情報
+        if(nst===2){
+            txo('▶ 爆撃機が出現',W/2,108,'#ff6644',7.5);
+            txo('▶ 地雷が埋設されている',W/2,124,'#ffaa44',7.5);
+            txo('▶ 地上敵が増加',W/2,140,'#ffcc88',7.5);
+        }else{
+            txo('▶ 戦車増援あり',W/2,108,'#ff6644',7.5);
+            txo('▶ 全敵が最高速度',W/2,124,'#ffaa44',7.5);
+            txo('▶ 最後の戦場だ',W/2,140,'#ffcc88',7.5);
+        }
+
+        // 激励メッセージ
+        const msg=nst===2?'勝ち続けろ！':'全力で生き残れ！';
+        if(bt>30){
+            ctx.globalAlpha=Math.min(1,(bt-30)/15)*bAlpha;
+            txo(msg,W/2,172,'#ffffff',8.5);
+            ctx.globalAlpha=bAlpha;
+        }
+
+        // タップ案内（点滅）
+        if(bt>50&&Math.floor(bt/18)%2===0)
+            txo('[ タップで出撃！ ]',W/2,H-14,'#44ff44',7.5);
+
+        ctx.globalAlpha=1;
     }
 }
 
