@@ -753,7 +753,7 @@ function update(){
                 }
             }else if(a.phase==='search'){
                 a.sxOff=Math.sin(a.ptimer*.09)*44; // 照射スイープ
-                if(a.ptimer>90){a.phase='warn';a.ptimer=0;snd(200,.35);}
+                if(a.ptimer>90){a.phase='warn';a.ptimer=0;snd(200,.06,.3);}
             }else if(a.phase==='warn'){
                 // サーチライトをプレイヤー方向へ収束
                 const tgt=(PX+P.w/2)-a.x;
@@ -931,7 +931,7 @@ function update(){
                     en.shotCd=60+Math.floor(Math.random()*40);
                     en.shotFlash=6;
                     enemyBullets.push({sx:en.sx-10,sy:en.sy+11,life:80});
-                    sfx('shoot');
+                    snd(240,.05,.35);
                 }
             }
         }
