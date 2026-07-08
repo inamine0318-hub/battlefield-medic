@@ -353,7 +353,7 @@ function inp(cx,cy){
 
     if(gs==='stageclear'){
         if(clearTimer>70){
-            if(stage<3){gs='briefing';briefTimer=0;}
+            if(stage<3){save();gs='briefing';briefTimer=0;}
             else{stopBgm();save();location.reload();}
         }
         return;
@@ -412,7 +412,7 @@ function rst(){
     enemies=[]; enemyBullets=[]; tanks=[]; drops=[]; mines=[];
     buddy={on:false,hp:0,tmr:0,fr:0,flash:0};
     notif={txt:'',t:0,col:'#44ff88'};
-    clearTimer=0;briefTimer=0;
+    clearTimer=0;briefTimer=0;ctxt=null;rtxt=null;voice={txt:'',t:0};
 }
 function save(){totR+=rescued;if(score>best)best=score;localStorage.setItem('bf_total',totR);localStorage.setItem('bf_high',best);}
 
