@@ -2498,7 +2498,7 @@ function drawOver(){
         txo('スコア : '+score+'pt',lx,H/2+18,'#ffff44',7,'left');
         txo('ベスト : '+best+'pt', lx,H/2+34,'#ffaa44',7,'left');
         txo('[ タップでリトライ ]',W/2,H/2+62,'#44ff44',8);
-    }else{
+    }else if(gs==='stageclear'){
         // === ステージクリア演出アニメーション ===
         const ct=clearTimer;
         // 深緑グラデ背景
