@@ -771,7 +771,7 @@ function update(){
                     airBullets.push({x:mx,y:my,
                         vx:(tx-mx)/d_*5, vy:(ty-my)/d_*5,
                         life:Math.ceil(d_/5)+14});
-                    sfx('shoot');
+                    snd(240,.05,.35);
                 }
                 if(a.ptimer>55){a.phase='leave';a.ptimer=0;a.sp=1.3;}
             }else if(a.phase==='leave'){
@@ -790,7 +790,7 @@ function update(){
                     // Pattern A: カーペット爆撃（5発・間隔開けて順次投下）
                     if(a.ptimer%70===1&&a.dropped<5){
                         airBombs.push({sx:a.x+scroll,y:a.y+8,vy:0.4,phase:'fall',life:0,maxLife:80,mtype:'carpet'});
-                        a.dropped++; snd(180,.08);
+                        a.dropped++; snd(240,.05,.35);
                         spark(a.x,a.y+8,'#888',5);
                     }
                     if(a.dropped>=5&&a.ptimer>330){a.phase='leave';a.sp=0.5;}
@@ -798,7 +798,7 @@ function update(){
                     // Pattern B: 誘導ミサイル（1発・落下→水平誘導）
                     if(!a.dropped){
                         airBombs.push({sx:a.x+scroll,y:a.y+8,vy:0.5,phase:'fall',life:0,maxLife:80,mtype:'homing',hdir:0});
-                        a.dropped=1; snd(250,.1);
+                        a.dropped=1; snd(240,.05,.35);
                         spark(a.x,a.y+8,'#cc4400',6);
                     }
                     if(a.ptimer>120){a.phase='leave';a.sp=0.5;}
@@ -806,7 +806,7 @@ function update(){
                     // Pattern C: 地面スキムミサイル（ゆっくり落下→水平skim）
                     if(!a.dropped){
                         airBombs.push({sx:a.x+scroll,y:a.y+8,vy:0.3,phase:'fall',life:0,maxLife:80,mtype:'skim',hdir:0});
-                        a.dropped=1; snd(220,.12);
+                        a.dropped=1; snd(240,.05,.35);
                         spark(a.x,a.y+8,'#cc8800',6);
                     }
                     if(a.ptimer>130){a.phase='leave';a.sp=0.5;}
