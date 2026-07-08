@@ -925,7 +925,7 @@ function update(){
         }else b.life++;
     });
     airBombs=airBombs.filter(b=>!(b.phase==='explode'&&b.life>=b.maxLife));
-    if(detected>0){if(detected===25)sfx('alert');detected--;}else detected=0;
+    if(detected>0){detected--;}else detected=0;
 
     // ===== 地上敵更新 =====
     enemies.forEach(en=>{
